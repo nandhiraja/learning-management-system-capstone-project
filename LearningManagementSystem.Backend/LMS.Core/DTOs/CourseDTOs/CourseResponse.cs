@@ -1,0 +1,19 @@
+using System;
+using System.Collections.Generic;
+
+namespace LMS.Core.DTOs
+{
+    public class CourseResponse
+    {
+        public Guid ExternalId { get; set; }
+        public string Title { get; set; } = null!;
+        public string Description { get; set; } = null!;
+        public decimal Price { get; set; }
+        public string Language { get; set; } = null!;
+        public string? ThumbnailUrl { get; set; }
+        public double Rating { get; set; }
+        public int StudentsCount { get; set; }
+        public string Status { get; set; } = null!;
+        public IEnumerable<CourseSectionResponse> Sections { get; set; } = new List<CourseSectionResponse>();
+    }
+}
