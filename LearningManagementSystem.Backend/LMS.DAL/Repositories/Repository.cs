@@ -16,32 +16,37 @@ namespace LMS.DAL.Repositories
             _context = context;
         }
 
-        public async Task<T> Create(T t)
+        public virtual async Task<T> Create(T t)
         {
             await _context.Set<T>().AddAsync(t);
             await _context.SaveChangesAsync();
             return t;
         }
 
-        public async Task<T?> Get(K k)
+        public virtual async Task<T?> Get(K k)
         {
             return await _context.Set<T>().FindAsync(k);
         }
 
-        public IEnumerable<Task<T?>> GetAll()
+        public virtual IEnumerable<Task<T?>> GetAll()
         {
             var list = _context.Set<T>().ToList();
             return list.Select(item => Task.FromResult<T?>(item));
         }
 
-        public async Task<T?> Update(T t)
+        public virtual async Task<IEnumerable<T>> GetAllAsync()
+        {
+            return await _context.Set<T>().ToListAsync();
+        }
+
+        public virtual async Task<T?> Update(T t)
         {
             _context.Set<T>().Update(t);
             await _context.SaveChangesAsync();
             return t;
         }
 
-        public async Task<T?> Delete(T t)
+        public virtual async Task<T?> Delete(T t)
         {
             _context.Set<T>().Remove(t);
             await _context.SaveChangesAsync();

@@ -31,5 +31,20 @@ namespace LMS.DAL.Repositories
                 .Include(e => e.LectureProgresses)
                 .FirstOrDefaultAsync(e => e.Id == id);
         }
+
+        public async Task<IEnumerable<Enrollment>> GetEnrollmentsByCourseIdWithUserAsync(int courseId)
+        {
+            return await _context.Enrollments
+                .Where(e => e.CourseId == courseId)
+                .Include(e => e.User)
+                .ToListAsync();
+        }
+
+        public async Task<IEnumerable<Enrollment>> GetEnrollmentsByCourseIdsAsync(IEnumerable<int> courseIds)
+        {
+            return await _context.Enrollments
+                .Where(e => courseIds.Contains(e.CourseId))
+                .ToListAsync();
+        }
     }
 }

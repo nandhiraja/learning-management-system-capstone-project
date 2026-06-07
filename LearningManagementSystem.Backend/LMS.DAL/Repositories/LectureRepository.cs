@@ -20,5 +20,18 @@ namespace LMS.DAL.Repositories
                 .Where(l => l.CourseSectionId == sectionId)
                 .ToListAsync();
         }
+
+        public async Task<Lecture?> GetLectureWithDetailsAsync(int lectureId)
+        {
+            return await _context.Lectures
+                .Include(l => l.CourseSection)
+                    .ThenInclude(s => s.Course)
+                        .ThenInclude(c => c.Enrollments)
+                .Include(l => l.CourseSection)
+                    .ThenInclude(s => s.Course)
+                        .ThenInclude(c => c.Instructor)
+                .FirstOrDefaultAsync(l => l.Id == lectureId);
+        }
     }
 }
+

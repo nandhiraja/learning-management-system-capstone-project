@@ -17,5 +17,11 @@ namespace LMS.DAL.Repositories
             return await _context.Payments
                 .FirstOrDefaultAsync(p => p.OrderId == orderId);
         }
+
+        public async Task<Payment?> GetPaymentByTransactionIdAsync(string transactionId)
+        {
+            return await _context.Payments
+                .FirstOrDefaultAsync(p => p.TransactionId == transactionId);
+        }
     }
 }

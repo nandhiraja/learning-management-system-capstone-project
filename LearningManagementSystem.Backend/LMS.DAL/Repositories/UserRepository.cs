@@ -6,10 +6,17 @@ using System.Threading.Tasks;
 
 namespace LMS.DAL.Repositories
 {
-    public class UserRepository : Repository<int, User>, IUserRepository
+    public class UserRepository : Repository<Guid, User>, IUserRepository
     {
         public UserRepository(LMSDBContext context) : base(context)
         {
+        }
+
+        public override async Task<User?> Get(Guid k)
+        {
+            return await _context.Users
+                .Include(u => u.Role)
+                .FirstOrDefaultAsync(u => u.ExternalId == k);
         }
 
         public async Task<User?> GetUserByEmailAsync(string email)
@@ -24,6 +31,18 @@ namespace LMS.DAL.Repositories
             return await _context.Users
                 .Include(u => u.Role)
                 .FirstOrDefaultAsync(u => u.Id == id);
+        }
+
+        public async Task<int> GetCountAsync()
+        {
+            return await _context.Users.CountAsync();
+        }
+
+        public async Task<User?> GetUserByRefreshTokenAsync(string refreshToken)
+        {
+            return await _context.Users
+                .Include(u => u.Role)
+                .FirstOrDefaultAsync(u => u.RefreshToken == refreshToken);
         }
     }
 }

@@ -1,8 +1,10 @@
 using LMS.BLL.Interfaces;
 using LMS.Core.Models;
 using LMS.DAL.Data;
+using LMS.Core.Enums;
 using Microsoft.EntityFrameworkCore;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 
 namespace LMS.DAL.Repositories
@@ -31,6 +33,32 @@ namespace LMS.DAL.Repositories
                 .Include(c => c.Sections)
                     .ThenInclude(s => s.Lectures)
                 .FirstOrDefaultAsync(c => c.Id == id);
+        }
+
+        public async Task<Course?> GetByExternalIdAsync(Guid externalId)
+        {
+            return await _context.Courses
+                .Include(c => c.Instructor)
+                .Include(c => c.Category)
+                .Include(c => c.Language)
+                .Include(c => c.Sections)
+                    .ThenInclude(s => s.Lectures)
+                .FirstOrDefaultAsync(c => c.ExternalId == externalId);
+        }
+
+        public async Task<int> GetCountAsync()
+        {
+            return await _context.Courses.CountAsync();
+        }
+
+        public async Task<IEnumerable<Course>> GetPendingCoursesAsync()
+        {
+            return await _context.Courses
+                .Include(c => c.Instructor)
+                .Include(c => c.Category)
+                .Include(c => c.Language)
+                .Where(c => c.Status == CourseStatus.PendingReview)
+                .ToListAsync();
         }
     }
 }

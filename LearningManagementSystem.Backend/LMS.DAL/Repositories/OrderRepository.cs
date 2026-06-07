@@ -1,5 +1,6 @@
 using LMS.BLL.Interfaces;
 using LMS.Core.Models;
+using LMS.Core.Enums;
 using LMS.DAL.Data;
 using Microsoft.EntityFrameworkCore;
 using System.Collections.Generic;
@@ -28,6 +29,27 @@ namespace LMS.DAL.Repositories
                     .ThenInclude(oi => oi.Course)
                 .Include(o => o.Payment)
                 .FirstOrDefaultAsync(o => o.Id == id);
+        }
+
+        public async Task<Order?> GetByExternalIdAsync(Guid externalId)
+        {
+            return await _context.Orders
+                .Include(o => o.OrderItems)
+                    .ThenInclude(oi => oi.Course)
+                .Include(o => o.Payment)
+                .FirstOrDefaultAsync(o => o.ExternalId == externalId);
+        }
+
+        public async Task<decimal> GetRevenueByCourseIdsAsync(IEnumerable<int> courseIds)
+        {
+            return await _context.OrderItems
+                .Where(oi => courseIds.Contains(oi.CourseId) && oi.Order.Status == OrderStatus.Completed)
+                .SumAsync(oi => oi.FinalPrice);
+        }
+
+        public async Task<int> GetCountAsync()
+        {
+            return await _context.Orders.CountAsync();
         }
     }
 }
