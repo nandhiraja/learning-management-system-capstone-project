@@ -77,6 +77,21 @@ namespace LMS.PL.Controllers
 
         // --- Payment Endpoints ---
 
+        [HttpPost("payments")]
+        public async Task<IActionResult> CreatePayment([FromBody] PaymentCreateRequest request)
+        {
+            var response = await _paymentService.CreatePaymentAsync(request);
+            return Ok(response);
+        }
+
+        [HttpGet("payments/{paymentId}")]
+        public async Task<IActionResult> GetPayment(int paymentId)
+        {
+            var response = await _paymentService.GetPaymentByIdAsync(paymentId);
+            if (response == null) return NotFound();
+            return Ok(response);
+        }
+
         [AllowAnonymous]
         [HttpPost("payments/verify")]
         public async Task<IActionResult> ProcessWebhook([FromBody] object payload)
