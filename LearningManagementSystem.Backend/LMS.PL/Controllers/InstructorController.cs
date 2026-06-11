@@ -5,11 +5,14 @@ using System;
 using System.Security.Claims;
 using System.Threading.Tasks;
 
+using Microsoft.AspNetCore.RateLimiting;
+
 namespace LMS.PL.Controllers
 {
     [ApiController]
     [Route("api/instructor")]
     [Authorize(Roles = "Instructor")]
+    [EnableRateLimiting("api-limiter")]
     public class InstructorController : ControllerBase
     {
         private readonly IInstructorService _instructorService;

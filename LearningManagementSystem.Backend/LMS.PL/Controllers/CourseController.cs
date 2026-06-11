@@ -7,10 +7,13 @@ using System;
 using System.Security.Claims;
 using System.Threading.Tasks;
 
+using Microsoft.AspNetCore.RateLimiting;
+
 namespace LMS.PL.Controllers
 {
     [ApiController]
     [Route("api/courses")]
+    [EnableRateLimiting("api-limiter")]
     public class CourseController : ControllerBase
     {
         private readonly ICourseService _courseService;
@@ -45,7 +48,7 @@ namespace LMS.PL.Controllers
         [HttpGet("{courseId}")]
         public async Task<IActionResult> GetCourseById(Guid courseId)
         {
-            var course = await _courseService.GetCourseByIdAsync(courseId);
+            var course = await _courseService.GetCourseByIdAsync(courseId, CurrentUserGuid);
             if (course == null) return NotFound();
             return Ok(course);
         }
@@ -62,7 +65,7 @@ namespace LMS.PL.Controllers
         [HttpPut("{courseId}")]
         public async Task<IActionResult> UpdateCourse(Guid courseId, [FromBody] CourseUpdateRequest request)
         {
-            var success = await _courseService.UpdateCourseAsync(courseId, request);
+            var success = await _courseService.UpdateCourseAsync(courseId, request, CurrentUserGuid);
             if (!success) return NotFound();
             return Ok(new { message = "Course updated" });
         }
@@ -71,7 +74,7 @@ namespace LMS.PL.Controllers
         [HttpDelete("{courseId}")]
         public async Task<IActionResult> DeleteCourse(Guid courseId)
         {
-            var success = await _courseService.DeleteCourseAsync(courseId);
+            var success = await _courseService.DeleteCourseAsync(courseId, CurrentUserGuid);
             if (!success) return NotFound();
             return Ok(new { message = "Course deleted" });
         }
@@ -80,7 +83,7 @@ namespace LMS.PL.Controllers
         [HttpPost("{courseId}/submit")]
         public async Task<IActionResult> SubmitForReview(Guid courseId)
         {
-            var success = await _courseService.SubmitForReviewAsync(courseId);
+            var success = await _courseService.SubmitForReviewAsync(courseId, CurrentUserGuid);
             if (!success) return BadRequest("Could not submit for review");
             return Ok(new { message = "Submitted for admin approval" });
         }

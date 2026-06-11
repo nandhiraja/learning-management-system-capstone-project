@@ -3,10 +3,13 @@ using LMS.Core.DTOs;
 using Microsoft.AspNetCore.Mvc;
 using System.Threading.Tasks;
 
+using Microsoft.AspNetCore.RateLimiting;
+
 namespace LMS.PL.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
+    [EnableRateLimiting("auth-limiter")]
     public class AuthController : ControllerBase
     {
         private readonly IAuthService _authService;

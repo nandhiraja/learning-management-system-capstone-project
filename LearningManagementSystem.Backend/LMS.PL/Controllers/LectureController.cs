@@ -5,10 +5,13 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using System.Threading.Tasks;
 
+using Microsoft.AspNetCore.RateLimiting;
+
 namespace LMS.PL.Controllers
 {
     [ApiController]
     [Route("api")]
+    [EnableRateLimiting("api-limiter")]
     public class LectureController : ControllerBase
     {
         private readonly ILectureService _lectureService;
@@ -40,7 +43,7 @@ namespace LMS.PL.Controllers
         [HttpPost("sections/{sectionId}/lectures")]
         public async Task<IActionResult> CreateLecture(int sectionId, [FromBody] LectureRequest request)
         {
-            var response = await _lectureService.CreateLectureAsync(sectionId, request);
+            var response = await _lectureService.CreateLectureAsync(sectionId, request, CurrentUserGuid);
             return Ok(response);
         }
 
@@ -48,7 +51,7 @@ namespace LMS.PL.Controllers
         [HttpPut("lectures/{lectureId}")]
         public async Task<IActionResult> UpdateLecture(int lectureId, [FromBody] LectureRequest request)
         {
-            var success = await _lectureService.UpdateLectureAsync(lectureId, request);
+            var success = await _lectureService.UpdateLectureAsync(lectureId, request, CurrentUserGuid);
             if (!success) return NotFound();
             return Ok(new { message = "Updated" });
         }
@@ -57,7 +60,7 @@ namespace LMS.PL.Controllers
         [HttpDelete("lectures/{lectureId}")]
         public async Task<IActionResult> DeleteLecture(int lectureId)
         {
-            var success = await _lectureService.DeleteLectureAsync(lectureId);
+            var success = await _lectureService.DeleteLectureAsync(lectureId, CurrentUserGuid);
             if (!success) return NotFound();
             return Ok(new { message = "Deleted" });
         }

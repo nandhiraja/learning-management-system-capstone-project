@@ -7,11 +7,14 @@ using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 
+using Microsoft.AspNetCore.RateLimiting;
+
 namespace LMS.PL.Controllers
 {
     [ApiController]
     [Route("api/upload")]
     [Authorize] // Require users to be logged in to upload files
+    [EnableRateLimiting("upload-limiter")]
     public class UploadController : ControllerBase
     {
         private readonly IFileStorageService _fileStorageService;

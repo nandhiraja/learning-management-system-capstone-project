@@ -5,12 +5,16 @@ using Microsoft.AspNetCore.Mvc;
 using System;
 using System.Security.Claims;
 using System.Threading.Tasks;
+using System.ComponentModel.DataAnnotations;
+
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace LMS.PL.Controllers
 {
     [ApiController]
     [Route("api")]
     [Authorize]
+    [EnableRateLimiting("api-limiter")]
     public class EnrollmentController : ControllerBase
     {
         private readonly IEnrollmentService _enrollmentService;
@@ -70,6 +74,13 @@ namespace LMS.PL.Controllers
 
         // --- Certificates ---
 
+        [HttpGet("certificates")]
+        public async Task<IActionResult> GetMyCertificates()
+        {
+            var certificates = await _certificateService.GetCertificatesByUserAsync(CurrentUserGuid);
+            return Ok(certificates);
+        }
+
         [HttpGet("certificates/{certificateId}")]
         public async Task<IActionResult> GetCertificate(int certificateId)
         {
@@ -81,7 +92,11 @@ namespace LMS.PL.Controllers
 
     public class ProgressRequestDto
     {
+        [Required]
+        [Range(0, 1000000)]
         public int WatchedSeconds { get; set; }
+
+        [Required]
         public bool IsCompleted { get; set; }
     }
 }

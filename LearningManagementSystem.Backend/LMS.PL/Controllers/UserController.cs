@@ -7,10 +7,13 @@ using System;
 using System.Security.Claims;
 using System.Threading.Tasks;
 
+using Microsoft.AspNetCore.RateLimiting;
+
 namespace LMS.PL.Controllers
 {
     [ApiController]
     [Route("api/users")]
+    [EnableRateLimiting("api-limiter")]
     public class UserController : ControllerBase
     {
         private readonly IUserService _userService;
@@ -51,8 +54,8 @@ namespace LMS.PL.Controllers
         public async Task<IActionResult> BecomeInstructor()
         {
             var success = await _userService.BecomeInstructorAsync(CurrentUserGuid);
-            if (!success) return BadRequest(new { message = "Failed to upgrade role" });
-            return Ok(new { message = "You have successfully become an instructor." });
+            if (!success) return BadRequest(new { message = "Failed to submit request" });
+            return Ok(new { message = "Instructor request submitted successfully. Waiting for admin approval." });
         }
     }
 }

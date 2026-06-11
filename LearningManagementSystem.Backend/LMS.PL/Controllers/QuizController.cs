@@ -6,10 +6,13 @@ using System;
 using System.Security.Claims;
 using System.Threading.Tasks;
 
+using Microsoft.AspNetCore.RateLimiting;
+
 namespace LMS.PL.Controllers
 {
     [ApiController]
     [Route("api")]
+    [EnableRateLimiting("api-limiter")]
     public class QuizController : ControllerBase
     {
         private readonly IQuizService _quizService;
@@ -40,7 +43,7 @@ namespace LMS.PL.Controllers
         [HttpPost("lectures/{lectureId}/quiz")]
         public async Task<IActionResult> CreateQuiz(int lectureId, [FromBody] QuizRequest request)
         {
-            var response = await _quizService.CreateQuizAsync(lectureId, request);
+            var response = await _quizService.CreateQuizAsync(lectureId, request, CurrentUserGuid);
             return Ok(response);
         }
 
@@ -48,7 +51,7 @@ namespace LMS.PL.Controllers
         [HttpPut("quizzes/{quizId}")]
         public async Task<IActionResult> UpdateQuiz(int quizId, [FromBody] QuizRequest request)
         {
-            var success = await _quizService.UpdateQuizAsync(quizId, request);
+            var success = await _quizService.UpdateQuizAsync(quizId, request, CurrentUserGuid);
             if (!success) return NotFound();
             return Ok(new { message = "Updated" });
         }
@@ -57,7 +60,7 @@ namespace LMS.PL.Controllers
         [HttpDelete("quizzes/{quizId}")]
         public async Task<IActionResult> DeleteQuiz(int quizId)
         {
-            var success = await _quizService.DeleteQuizAsync(quizId);
+            var success = await _quizService.DeleteQuizAsync(quizId, CurrentUserGuid);
             if (!success) return NotFound();
             return Ok(new { message = "Deleted" });
         }

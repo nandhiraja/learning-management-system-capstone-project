@@ -5,10 +5,13 @@ using Microsoft.AspNetCore.Mvc;
 using System;
 using System.Threading.Tasks;
 
+using Microsoft.AspNetCore.RateLimiting;
+
 namespace LMS.PL.Controllers
 {
     [ApiController]
     [Route("api")]
+    [EnableRateLimiting("api-limiter")]
     public class CourseSectionController : ControllerBase
     {
         private readonly ICourseSectionService _sectionService;
@@ -18,11 +21,20 @@ namespace LMS.PL.Controllers
             _sectionService = sectionService;
         }
 
+        protected Guid CurrentUserGuid
+        {
+            get
+            {
+                var idClaim = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+                return Guid.TryParse(idClaim, out var guid) ? guid : Guid.Empty;
+            }
+        }
+
         [Authorize(Roles = "Instructor,Admin")]
         [HttpPost("courses/{courseId}/sections")]
         public async Task<IActionResult> CreateSection(Guid courseId, [FromBody] CourseSectionRequest request)
         {
-            var response = await _sectionService.CreateSectionAsync(courseId, request);
+            var response = await _sectionService.CreateSectionAsync(courseId, request, CurrentUserGuid);
             return Ok(response);
         }
 
@@ -30,7 +42,7 @@ namespace LMS.PL.Controllers
         [HttpPut("sections/{sectionId}")]
         public async Task<IActionResult> UpdateSection(int sectionId, [FromBody] CourseSectionRequest request)
         {
-            var success = await _sectionService.UpdateSectionAsync(sectionId, request);
+            var success = await _sectionService.UpdateSectionAsync(sectionId, request, CurrentUserGuid);
             if (!success) return NotFound();
             return Ok(new { message = "Updated" });
         }
@@ -39,7 +51,7 @@ namespace LMS.PL.Controllers
         [HttpDelete("sections/{sectionId}")]
         public async Task<IActionResult> DeleteSection(int sectionId)
         {
-            var success = await _sectionService.DeleteSectionAsync(sectionId);
+            var success = await _sectionService.DeleteSectionAsync(sectionId, CurrentUserGuid);
             if (!success) return NotFound();
             return Ok(new { message = "Deleted" });
         }
