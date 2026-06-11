@@ -5,6 +5,7 @@ namespace LMS.Core.Models
     public class Order
     {
         public int Id { get; set; }
+        public Guid ExternalId { get; set; } = Guid.NewGuid();
         public int UserId { get; set; }
         public OrderStatus Status { get; set; }
         public DateTime OrderDate { get; set; }

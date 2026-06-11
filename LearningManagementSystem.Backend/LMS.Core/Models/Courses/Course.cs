@@ -6,6 +6,7 @@ namespace LMS.Core.Models
     public class Course
     {
         public int Id { get; set; }
+        public Guid ExternalId { get; set; } = Guid.NewGuid();
         public int InstructorId { get; set; }
         public int CategoryId { get; set; }
         public  int LanguageId { get; set; }
