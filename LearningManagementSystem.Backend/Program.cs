@@ -9,6 +9,7 @@ using LMS.DAL.Interfaces;
 using LMS.DAL.Repositories;
 using LMS.BLL.Interfaces;
 using LMS.BLL.Services;
+using Microsoft.AspNetCore.RateLimiting;
 using LMS.PL.Middleware;
 
 AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
@@ -88,6 +89,7 @@ builder.Services.AddScoped<ICertificateRepository, CertificateRepository>();
 builder.Services.AddScoped<IOrderRepository, OrderRepository>();
 builder.Services.AddScoped<IOrderItemRepository, OrderItemRepository>();
 builder.Services.AddScoped<IPaymentRepository, PaymentRepository>();
+builder.Services.AddScoped<IDiscussionRepository, DiscussionRepository>();
 #endregion
 
 #region ServiceRegistration
@@ -105,6 +107,8 @@ builder.Services.AddScoped<IQuizService, QuizService>();
 builder.Services.AddScoped<ICartService, CartService>();
 builder.Services.AddScoped<IOrderService, OrderService>();
 builder.Services.AddScoped<IPaymentService, PaymentService>();
+builder.Services.AddScoped<IPaymentGateway, LMS.BLL.Services.Orders.Gateways.PayPalPaymentGateway>();
+builder.Services.AddScoped<IPaymentGateway, LMS.BLL.Services.Orders.Gateways.DefaultMockPaymentGateway>();
 builder.Services.AddScoped<IEnrollmentService, EnrollmentService>();
 builder.Services.AddScoped<ILectureProgressService, LectureProgressService>();
 builder.Services.AddScoped<ICertificateService, CertificateService>();
@@ -112,11 +116,38 @@ builder.Services.AddScoped<IWishlistService, WishlistService>();
 builder.Services.AddScoped<ICourseReviewService, CourseReviewService>();
 builder.Services.AddScoped<IInstructorService, InstructorService>();
 builder.Services.AddScoped<IAdminService, AdminService>();
+builder.Services.AddScoped<IDiscussionService, DiscussionService>();
 
 #endregion
 
 // AutoMapper
 builder.Services.AddAutoMapper(cfg => { }, typeof(LMS.BLL.Mappers.MappingProfile));
+
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = Microsoft.AspNetCore.Http.StatusCodes.Status429TooManyRequests;
+
+    options.AddFixedWindowLimiter("auth-limiter", opt =>
+    {
+        opt.PermitLimit = 10;
+        opt.Window = TimeSpan.FromMinutes(1);
+        opt.QueueLimit = 0;
+    });
+
+    options.AddFixedWindowLimiter("upload-limiter", opt =>
+    {
+        opt.PermitLimit = 5;
+        opt.Window = TimeSpan.FromMinutes(1);
+        opt.QueueLimit = 0;
+    });
+
+    options.AddFixedWindowLimiter("api-limiter", opt =>
+    {
+        opt.PermitLimit = 100;
+        opt.Window = TimeSpan.FromMinutes(1);
+        opt.QueueLimit = 0;
+    });
+});
 
 
 
@@ -136,6 +167,8 @@ if (app.Environment.IsDevelopment())
 app.UseHttpsRedirection();
 // Configure the HTTP request pipeline.
 app.UseMiddleware<ExceptionHandlingMiddleware>();
+
+app.UseRateLimiter();
 
 app.UseAuthentication();
 app.UseAuthorization();
