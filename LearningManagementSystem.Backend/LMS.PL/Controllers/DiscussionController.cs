@@ -38,9 +38,9 @@ namespace LMS.PL.Controllers
         }
 
         [HttpGet("api/courses/{courseId}/discussions")]
-        public async Task<IActionResult> GetDiscussions(Guid courseId)
+        public async Task<IActionResult> GetDiscussions(Guid courseId, [FromQuery] int? lectureId = null)
         {
-            var result = await _discussionService.GetDiscussionsForCourseAsync(courseId, CurrentUserGuid);
+            var result = await _discussionService.GetDiscussionsForCourseAsync(courseId, CurrentUserGuid, lectureId);
             return Ok(result);
         }
 
@@ -57,6 +57,20 @@ namespace LMS.PL.Controllers
         {
             var result = await _discussionService.CreateReplyAsync(discussionId, CurrentUserGuid, request);
             return Ok(result);
+        }
+        [Authorize(Roles = "Instructor,Admin")]
+        [HttpPut("api/discussions/replies/{replyId}/pin")]
+        public async Task<IActionResult> TogglePin(Guid replyId)
+        {
+            var isPinned = await _discussionService.TogglePinReplyAsync(replyId, CurrentUserGuid);
+            return Ok(new { isPinned, message = isPinned ? "Reply pinned successfully" : "Reply unpinned successfully" });
+        }
+
+        [HttpPost("api/discussions/replies/{replyId}/like")]
+        public async Task<IActionResult> LikeReply(Guid replyId)
+        {
+            var likesCount = await _discussionService.LikeReplyAsync(replyId, CurrentUserGuid);
+            return Ok(new { likesCount, message = "Reply liked successfully" });
         }
     }
 }

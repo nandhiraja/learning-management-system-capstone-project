@@ -37,5 +37,19 @@ namespace LMS.PL.Controllers
             var stats = await _instructorService.GetDashboardDataAsync(CurrentUserGuid);
             return Ok(stats);
         }
+
+        [HttpGet("courses")]
+        public async Task<IActionResult> GetCourses()
+        {
+            var courses = await _instructorService.GetCoursesAsync(CurrentUserGuid);
+            return Ok(courses);
+        }
+
+        [HttpGet("discussions")]
+        public async Task<IActionResult> GetDiscussions([FromQuery] bool? unansweredOnly = null)
+        {
+            var discussions = await _instructorService.GetInstructorDiscussionsAsync(CurrentUserGuid, unansweredOnly);
+            return Ok(discussions);
+        }
     }
 }

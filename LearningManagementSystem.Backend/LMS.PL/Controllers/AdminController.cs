@@ -17,12 +17,16 @@ namespace LMS.PL.Controllers
         private readonly IAdminService _adminService;
         private readonly ICourseService _courseService;
         private readonly IUserService _userService;
+        private readonly ICategoryService _categoryService;
+        private readonly ILanguageService _languageService;
 
-        public AdminController(IAdminService adminService, ICourseService courseService, IUserService userService)
+        public AdminController(IAdminService adminService, ICourseService courseService, IUserService userService, ICategoryService categoryService, ILanguageService languageService)
         {
             _adminService = adminService;
             _courseService = courseService;
             _userService = userService;
+            _categoryService = categoryService;
+            _languageService = languageService;
         }
 
         [HttpGet("dashboard")]
@@ -70,6 +74,59 @@ namespace LMS.PL.Controllers
         {
             var users = await _userService.GetUsersAsync();
             return Ok(users);
+        }
+
+        [HttpGet("courses")]
+        public async Task<IActionResult> GetCourses()
+        {
+            var courses = await _adminService.GetAdminCoursesAsync();
+            return Ok(courses);
+        }
+
+        [HttpGet("categories")]
+        public async Task<IActionResult> GetAdminCategories()
+        {
+            var categories = await _categoryService.GetCategoriesAsync(onlyApproved: false);
+            return Ok(categories);
+        }
+
+        [HttpPut("categories/{id}/approve")]
+        public async Task<IActionResult> ApproveCategory(int id)
+        {
+            var success = await _categoryService.ApproveCategoryAsync(id);
+            if (!success) return NotFound(new { message = "Category not found" });
+            return Ok(new { message = "Category approved successfully" });
+        }
+
+        [HttpDelete("categories/{id}")]
+        public async Task<IActionResult> DeleteCategory(int id)
+        {
+            var success = await _categoryService.DeleteCategoryAsync(id);
+            if (!success) return NotFound(new { message = "Category not found" });
+            return Ok(new { message = "Category deleted successfully" });
+        }
+
+        [HttpGet("languages")]
+        public async Task<IActionResult> GetAdminLanguages()
+        {
+            var languages = await _languageService.GetLanguagesAsync(onlyApproved: false);
+            return Ok(languages);
+        }
+
+        [HttpPut("languages/{id}/approve")]
+        public async Task<IActionResult> ApproveLanguage(int id)
+        {
+            var success = await _languageService.ApproveLanguageAsync(id);
+            if (!success) return NotFound(new { message = "Language not found" });
+            return Ok(new { message = "Language approved successfully" });
+        }
+
+        [HttpDelete("languages/{id}")]
+        public async Task<IActionResult> DeleteLanguage(int id)
+        {
+            var success = await _languageService.DeleteLanguageAsync(id);
+            if (!success) return NotFound(new { message = "Language not found" });
+            return Ok(new { message = "Language deleted successfully" });
         }
 
         [HttpPatch("users/{userGuid}/status")]
