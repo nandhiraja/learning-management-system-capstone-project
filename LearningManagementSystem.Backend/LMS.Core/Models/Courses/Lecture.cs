@@ -11,7 +11,7 @@ namespace LMS.Core.Models
         public int DurationInMinutes { get; set; }
         public LectureStatus Status { get; set; }
 
-        // Navigation properties
+        // Navigation properties    
         public CourseSection CourseSection { get; set; } = null!;
         public IEnumerable<Quiz> Quizzes { get; set; } = new List<Quiz>();
         public IEnumerable<LectureProgress> LectureProgresses { get; set; } = new List<LectureProgress>();
