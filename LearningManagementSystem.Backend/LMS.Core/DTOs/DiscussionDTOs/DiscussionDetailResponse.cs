@@ -11,7 +11,8 @@ namespace LMS.Core.DTOs
         public DateTime CreatedAt { get; set; }
         public DateTime UpdatedAt { get; set; }
         public UserProfileResponse User { get; set; } = null!;
-        public int? LectureId { get; set; }
+        public int LectureId { get; set; }
+        public string? LectureTitle { get; set; }
         public IEnumerable<DiscussionReplyResponse> Replies { get; set; } = new List<DiscussionReplyResponse>();
     }
 }

@@ -11,6 +11,7 @@ namespace LMS.Core.DTOs
         public DateTime UpdatedAt { get; set; }
         public UserProfileResponse User { get; set; } = null!;
         public int RepliesCount { get; set; }
-        public int? LectureId { get; set; }
+        public int LectureId { get; set; }
+        public string? LectureTitle { get; set; }
     }
 }

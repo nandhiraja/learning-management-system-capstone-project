@@ -7,5 +7,6 @@ namespace LMS.Core.DTOs
         public string ContentUrl { get; set; } = null!;
         public int DurationInMinutes { get; set; }
         public string ContentType { get; set; } = null!;
+        public int? QuizId { get; set; }
     }
 }

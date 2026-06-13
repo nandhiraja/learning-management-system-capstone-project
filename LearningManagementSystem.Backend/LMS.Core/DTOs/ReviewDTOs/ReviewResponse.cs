@@ -1,8 +1,15 @@
+using System.ComponentModel.DataAnnotations;
+
 namespace LMS.Core.DTOs
 {
     public class ReviewRequest
     {
+        [Required]
+        [Range(1, 5)]
         public int Rating { get; set; } // 1 to 5
+
+        [Required]
+        [StringLength(1000)]
         public string? Comment { get; set; }
     }
 

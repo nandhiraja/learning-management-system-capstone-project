@@ -14,6 +14,9 @@ namespace LMS.Core.DTOs
         public double Rating { get; set; }
         public int StudentsCount { get; set; }
         public string Status { get; set; } = null!;
+        public DateTime CreatedAt { get; set; }
+        public DateTime UpdatedAt { get; set; }
+        public UserProfileResponse Instructor { get; set; } = null!;
         public IEnumerable<CourseSectionResponse> Sections { get; set; } = new List<CourseSectionResponse>();
     }
 }

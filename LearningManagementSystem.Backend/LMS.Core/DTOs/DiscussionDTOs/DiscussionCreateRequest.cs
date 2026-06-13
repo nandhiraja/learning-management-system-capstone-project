@@ -12,6 +12,8 @@ namespace LMS.Core.DTOs
         [StringLength(5000, MinimumLength = 3, ErrorMessage = "Content must be between 3 and 5000 characters.")]
         public string Content { get; set; } = null!;
 
-        public int? LectureId { get; set; }
+        [Required]
+        [Range(1, int.MaxValue, ErrorMessage = "LectureId must be a valid ID.")]
+        public int LectureId { get; set; }
     }
 }

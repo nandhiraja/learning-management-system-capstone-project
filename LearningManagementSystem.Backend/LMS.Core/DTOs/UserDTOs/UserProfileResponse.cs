@@ -10,5 +10,6 @@ namespace LMS.Core.DTOs
         public string Email { get; set; } = null!;
         public string PhoneNo { get; set; } = null!;
         public string? ProfilePictureUrl { get; set; }
+        public string Role { get; set; } = null!;
     }
 }
