@@ -9,6 +9,7 @@ namespace LMS.BLL.Interfaces
         Task<CertificateResponse?> GetCertificateAsync(Guid courseGuid, Guid userGuid);
         Task<CertificateResponse> GenerateCertificateAsync(Guid courseGuid, Guid userGuid);
         Task<CertificateResponse?> GetCertificateByIdAsync(int certificateId);
+        Task<IEnumerable<CertificateResponse>> GetCertificatesByUserAsync(Guid userGuid);
     }
 }
 

@@ -120,6 +120,25 @@ namespace LMS.BLL.Services
             if (user == null)
                 throw new NotFoundException(nameof(User), userGuid);
 
+            user.InstructorRequestPending = true;
+            user.UpdatedAt = DateTime.UtcNow;
+            await _userRepository.Update(user);
+            return true;
+        }
+
+        public async Task<IEnumerable<UserProfileResponse>> GetPendingInstructorsAsync()
+        {
+            var users = await _userRepository.GetAllAsync();
+            var pending = users.Where(u => u.InstructorRequestPending).ToList();
+            return _mapper.Map<IEnumerable<UserProfileResponse>>(pending);
+        }
+
+        public async Task<bool> ApproveInstructorAsync(Guid userGuid)
+        {
+            User? user = await _userRepository.Get(userGuid);
+            if (user == null)
+                throw new NotFoundException(nameof(User), userGuid);
+
             var roles = await _roleRepository.GetAllAsync();
             var instructorRole = roles.FirstOrDefault(r => r.Name.Equals("Instructor", StringComparison.OrdinalIgnoreCase));
             if (instructorRole == null)
@@ -128,6 +147,39 @@ namespace LMS.BLL.Services
             }
 
             user.RoleId = instructorRole.Id;
+            user.InstructorRequestPending = false;
+            user.UpdatedAt = DateTime.UtcNow;
+            await _userRepository.Update(user);
+            return true;
+        }
+
+        public async Task<bool> RejectInstructorAsync(Guid userGuid)
+        {
+            User? user = await _userRepository.Get(userGuid);
+            if (user == null)
+                throw new NotFoundException(nameof(User), userGuid);
+
+            user.InstructorRequestPending = false;
+            user.UpdatedAt = DateTime.UtcNow;
+            await _userRepository.Update(user);
+            return true;
+        }
+
+        public async Task<bool> DemoteToStudentAsync(Guid userGuid)
+        {
+            User? user = await _userRepository.Get(userGuid);
+            if (user == null)
+                throw new NotFoundException(nameof(User), userGuid);
+
+            var roles = await _roleRepository.GetAllAsync();
+            var studentRole = roles.FirstOrDefault(r => r.Name.Equals("Student", StringComparison.OrdinalIgnoreCase));
+            if (studentRole == null)
+            {
+                throw new NotFoundException("Role", "Student");
+            }
+
+            user.RoleId = studentRole.Id;
+            user.InstructorRequestPending = false;
             user.UpdatedAt = DateTime.UtcNow;
             await _userRepository.Update(user);
             return true;

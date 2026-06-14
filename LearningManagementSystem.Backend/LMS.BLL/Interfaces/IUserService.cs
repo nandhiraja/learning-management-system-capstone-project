@@ -16,5 +16,9 @@ namespace LMS.BLL.Interfaces
         Task<bool> AssignRoleAsync(Guid userGuid, int roleId);
         Task<bool> UploadProfilePictureAsync(Guid userGuid, string fileUrl);
         Task<bool> BecomeInstructorAsync(Guid userGuid);
+        Task<IEnumerable<UserProfileResponse>> GetPendingInstructorsAsync();
+        Task<bool> ApproveInstructorAsync(Guid userGuid);
+        Task<bool> RejectInstructorAsync(Guid userGuid);
+        Task<bool> DemoteToStudentAsync(Guid userGuid);
     }
 }

@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using AutoMapper;
 using LMS.BLL.Interfaces;
 using LMS.Core.DTOs;
+using LMS.Core.Enums;
 using LMS.Core.Models;
 using LMS.DAL.Interfaces;
 
@@ -37,12 +38,18 @@ namespace LMS.BLL.Services
             int totalUsers = await _userRepository.GetCountAsync();
             int totalCourses = await _courseRepository.GetCountAsync();
             int totalOrders = await _orderRepository.GetCountAsync();
+            decimal totalRevenue = await _orderRepository.GetTotalRevenueAsync();
+            int pendingCoursesCount = await _courseRepository.GetPendingCoursesCountAsync();
+            int blockedUsersCount = await _userRepository.GetBlockedUsersCountAsync();
 
             return new AdminDashboardResponse
             {
                 Users = totalUsers,
                 Courses = totalCourses,
-                Orders = totalOrders
+                Orders = totalOrders,
+                TotalRevenue = totalRevenue,
+                PendingCoursesCount = pendingCoursesCount,
+                BlockedUsersCount = blockedUsersCount
             };
         }
 
@@ -68,6 +75,13 @@ namespace LMS.BLL.Services
         {
             var courses = await _courseRepository.GetPendingCoursesAsync();
             return _mapper.Map<IEnumerable<CourseResponse>>(courses);
+        }
+
+        public async Task<IEnumerable<CourseResponse>> GetAdminCoursesAsync()
+        {
+            var courses = await _courseRepository.GetCoursesWithDetailsAsync();
+            var filtered = courses.Where(c => c.Status != CourseStatus.Draft).ToList();
+            return _mapper.Map<IEnumerable<CourseResponse>>(filtered);
         }
     }
 }

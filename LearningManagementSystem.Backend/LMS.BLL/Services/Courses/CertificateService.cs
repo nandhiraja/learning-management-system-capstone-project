@@ -91,6 +91,16 @@ namespace LMS.BLL.Services
             if (certificate == null) return null;
             return _mapper.Map<CertificateResponse>(certificate);
         }
+
+        public async Task<IEnumerable<CertificateResponse>> GetCertificatesByUserAsync(Guid userGuid)
+        {
+            var user = await _userRepository.Get(userGuid);
+            if (user == null)
+                throw new NotFoundException(nameof(User), userGuid);
+
+            var certificates = await _certificateRepository.GetCertificatesByUserIdAsync(user.Id);
+            return _mapper.Map<IEnumerable<CertificateResponse>>(certificates);
+        }
     }
 }
 

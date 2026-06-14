@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using AutoMapper;
 using LMS.BLL.Interfaces;
 using LMS.Core.DTOs;
+using LMS.Core.Enums;
 using LMS.Core.Exception;
 using LMS.Core.Models;
 using LMS.DAL.Interfaces;
@@ -46,6 +47,17 @@ namespace LMS.BLL.Services
             var enrollments = await _enrollmentRepository.GetEnrollmentsByUserIdAsync(user.Id);
             if (!enrollments.Any(e => e.CourseId == course.Id))
                 throw new InvalidOperationException("Only enrolled users can review this course.");
+
+            if (course.Status != CourseStatus.Published)
+            {
+                throw new InvalidOperationException("You can only review published courses.");
+            }
+
+            var existingReviews = await _courseReviewRepository.GetReviewsByCourseIdAsync(course.Id);
+            if (existingReviews.Any(r => r.UserId == user.Id))
+            {
+                throw new InvalidOperationException("You have already reviewed this course. You can update your existing review instead.");
+            }
 
             var review = new CourseReview
             {

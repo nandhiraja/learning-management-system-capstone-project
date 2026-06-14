@@ -9,6 +9,7 @@ using LMS.Core.Models;
 using LMS.Core.Enums;
 using LMS.Core.Exception;
 using LMS.DAL.Interfaces;
+using LMS.DAL.Data;
 
 namespace LMS.BLL.Services
 {
@@ -19,6 +20,9 @@ namespace LMS.BLL.Services
         private readonly IQuizOptionRepository _optionRepository;
         private readonly ILectureRepository _lectureRepository;
         private readonly IUserRepository _userRepository;
+        private readonly IEnrollmentRepository _enrollmentRepository;
+        private readonly ICourseRepository _courseRepository;
+        private readonly LMSDBContext _context;
         private readonly IMapper _mapper;
 
         public QuizService(
@@ -27,6 +31,9 @@ namespace LMS.BLL.Services
             IQuizOptionRepository optionRepository,
             ILectureRepository lectureRepository,
             IUserRepository userRepository,
+            IEnrollmentRepository enrollmentRepository,
+            ICourseRepository courseRepository,
+            LMSDBContext context,
             IMapper mapper)
         {
             _quizRepository = quizRepository;
@@ -34,70 +41,94 @@ namespace LMS.BLL.Services
             _optionRepository = optionRepository;
             _lectureRepository = lectureRepository;
             _userRepository = userRepository;
+            _enrollmentRepository = enrollmentRepository;
+            _courseRepository = courseRepository;
+            _context = context;
             _mapper = mapper;
         }
 
-        public async Task<QuizResponse> CreateQuizAsync(int lectureId, QuizRequest request)
+        public async Task<QuizResponse> CreateQuizAsync(int lectureId, QuizRequest request, Guid userGuid)
         {
-            var lecture = await _lectureRepository.GetLectureWithDetailsAsync(lectureId);
-            if (lecture == null)
+            using var dbTransaction = await _context.Database.BeginTransactionAsync();
+            try
             {
-                throw new NotFoundException("Lecture", lectureId);
-            }
+                var user = await _userRepository.Get(userGuid);
+                if (user == null)
+                    throw new NotFoundException(nameof(User), userGuid);
 
-            var quiz = new Quiz
-            {
-                Title = request.Title,
-                PassScore = request.PassScore,
-                TotalMarks = 100, // standard default
-                LectureId = lectureId,
-                CourseId = lecture.CourseSection?.CourseId ?? 0,
-                MaxAttempts = 3,
-                CurrentAttempt = 0,
-                Status = QuizStatus.NotStarted,
-                CreatedAt = DateTime.UtcNow,
-                UpdatedAt = DateTime.UtcNow
-            };
-
-            var createdQuiz = await _quizRepository.Create(quiz);
-
-            var quizQuestions = new List<QuizQuestion>();
-            if (request.Questions != null)
-            {
-                foreach (var qReq in request.Questions)
+                var lecture = await _lectureRepository.GetLectureWithDetailsAsync(lectureId);
+                if (lecture == null)
                 {
-                    var question = new QuizQuestion
-                    {
-                        QuizId = createdQuiz.Id,
-                        QuestionText = qReq.QuestionText
-                    };
-                    var createdQuestion = await _questionRepository.Create(question);
-
-                    var optionsList = new List<QuizOption>();
-                    if (qReq.Options != null)
-                    {
-                        foreach (var optReq in qReq.Options)
-                        {
-                            var opt = new QuizOption
-                            {
-                                QuizQuestionId = createdQuestion.Id,
-                                OptionText = optReq.OptionText,
-                                IsCorrect = optReq.IsCorrect
-                            };
-                            var createdOpt = await _optionRepository.Create(opt);
-                            optionsList.Add(createdOpt);
-                        }
-                    }
-                    createdQuestion.Options = optionsList;
-                    quizQuestions.Add(createdQuestion);
+                    throw new NotFoundException("Lecture", lectureId);
                 }
+
+                // Admins and other users cannot add quizzes. Only the owning Instructor can.
+                if (lecture.CourseSection?.Course?.InstructorId != user.Id)
+                {
+                    throw new UnauthorizedAccessException("Only the course instructor is authorized to create quizzes for it.");
+                }
+
+                var quiz = new Quiz
+                {
+                    Title = request.Title,
+                    PassScore = request.PassScore,
+                    TotalMarks = 100, // standard default
+                    LectureId = lectureId,
+                    CourseId = lecture.CourseSection?.CourseId ?? 0,
+                    MaxAttempts = 3,
+                    CurrentAttempt = 0,
+                    Status = QuizStatus.NotStarted,
+                    CreatedAt = DateTime.UtcNow,
+                    UpdatedAt = DateTime.UtcNow
+                };
+
+                var createdQuiz = await _quizRepository.Create(quiz);
+
+                var quizQuestions = new List<QuizQuestion>();
+                if (request.Questions != null)
+                {
+                    foreach (var qReq in request.Questions)
+                    {
+                        var question = new QuizQuestion
+                        {
+                            QuizId = createdQuiz.Id,
+                            QuestionText = qReq.QuestionText
+                        };
+                        var createdQuestion = await _questionRepository.Create(question);
+
+                        var optionsList = new List<QuizOption>();
+                        if (qReq.Options != null)
+                        {
+                            foreach (var optReq in qReq.Options)
+                            {
+                                var opt = new QuizOption
+                                {
+                                    QuizQuestionId = createdQuestion.Id,
+                                    OptionText = optReq.OptionText,
+                                    IsCorrect = optReq.IsCorrect
+                                };
+                                var createdOpt = await _optionRepository.Create(opt);
+                                optionsList.Add(createdOpt);
+                            }
+                        }
+                        createdQuestion.Options = optionsList;
+                        quizQuestions.Add(createdQuestion);
+                    }
+                }
+
+                createdQuiz.Questions = quizQuestions;
+
+                var resp = _mapper.Map<QuizResponse>(createdQuiz);
+                resp.Questions = _mapper.Map<IEnumerable<QuizQuestionResponse>>(quizQuestions);
+
+                await dbTransaction.CommitAsync();
+                return resp;
             }
-
-            createdQuiz.Questions = quizQuestions;
-
-            var resp = _mapper.Map<QuizResponse>(createdQuiz);
-            resp.Questions = _mapper.Map<IEnumerable<QuizQuestionResponse>>(quizQuestions);
-            return resp;
+            catch (Exception)
+            {
+                await dbTransaction.RollbackAsync();
+                throw;
+            }
         }
 
         public async Task<QuizResponse?> GetQuizByIdAsync(int quizId)
@@ -112,10 +143,23 @@ namespace LMS.BLL.Services
             return resp;
         }
 
-        public async Task<bool> UpdateQuizAsync(int quizId, QuizRequest request)
+        public async Task<bool> UpdateQuizAsync(int quizId, QuizRequest request, Guid userGuid)
         {
+            var user = await _userRepository.Get(userGuid);
+            if (user == null)
+                throw new NotFoundException(nameof(User), userGuid);
+
             var quiz = await _quizRepository.Get(quizId);
             if (quiz == null) return false;
+
+            var course = await _courseRepository.Get(quiz.CourseId);
+            if (course == null) return false;
+
+            // Admins and other users cannot edit quizzes. Only the owning Instructor can.
+            if (course.InstructorId != user.Id)
+            {
+                throw new UnauthorizedAccessException("Only the course instructor is authorized to update quizzes in it.");
+            }
 
             quiz.Title = request.Title;
             quiz.PassScore = request.PassScore;
@@ -125,83 +169,183 @@ namespace LMS.BLL.Services
             return true;
         }
 
-        public async Task<bool> DeleteQuizAsync(int quizId)
+        public async Task<bool> DeleteQuizAsync(int quizId, Guid userGuid)
         {
+            var user = await _userRepository.Get(userGuid);
+            if (user == null)
+                throw new NotFoundException(nameof(User), userGuid);
+
             var quiz = await _quizRepository.Get(quizId);
             if (quiz == null) return false;
+
+            var course = await _courseRepository.GetCourseWithDetailsAsync(quiz.CourseId);
+            if (course == null) return false;
+
+            // Only the owning Instructor can delete quizzes. Admins cannot edit/delete directly.
+            if (course.InstructorId != user.Id)
+            {
+                throw new UnauthorizedAccessException("Only the course instructor is authorized to delete quizzes from it.");
+            }
+
+            // Cannot delete if there are active learners
+            bool hasActiveEnrollments = course.Enrollments != null &&
+                                       course.Enrollments.Any(e => e.Status == EnrollmentStatus.Active);
+
+            if (hasActiveEnrollments)
+            {
+                throw new InvalidOperationException("Cannot delete course materials while there are active learners in the course.");
+            }
 
             await _quizRepository.Delete(quiz);
             return true;
         }
 
-        public async Task<QuizQuestionResponse> AddQuestionToQuizAsync(int quizId, QuizQuestionRequest request)
+        public async Task<QuizQuestionResponse> AddQuestionToQuizAsync(int quizId, QuizQuestionRequest request, Guid userGuid)
         {
-            var quiz = await _quizRepository.Get(quizId);
-            if (quiz == null)
+            using var dbTransaction = await _context.Database.BeginTransactionAsync();
+            try
             {
-                throw new NotFoundException("Quiz", quizId);
-            }
+                var user = await _userRepository.Get(userGuid);
+                if (user == null)
+                    throw new NotFoundException(nameof(User), userGuid);
 
-            var question = new QuizQuestion
-            {
-                QuizId = quizId,
-                QuestionText = request.QuestionText
-            };
-
-            var createdQuestion = await _questionRepository.Create(question);
-
-            // Create options
-            var optionsList = new List<QuizOption>();
-            foreach (var optReq in request.Options)
-            {
-                var opt = new QuizOption
+                var quiz = await _quizRepository.Get(quizId);
+                if (quiz == null)
                 {
-                    QuizQuestionId = createdQuestion.Id,
-                    OptionText = optReq.OptionText,
-                    IsCorrect = optReq.IsCorrect
-                };
-                var createdOpt = await _optionRepository.Create(opt);
-                optionsList.Add(createdOpt);
-            }
+                    throw new NotFoundException("Quiz", quizId);
+                }
 
-            createdQuestion.Options = optionsList;
-            var resp = _mapper.Map<QuizQuestionResponse>(createdQuestion);
-            return resp;
+                var course = await _courseRepository.Get(quiz.CourseId);
+                if (course == null)
+                {
+                    throw new NotFoundException("Course", quiz.CourseId);
+                }
+
+                // Admins and other users cannot edit quizzes. Only the owning Instructor can.
+                if (course.InstructorId != user.Id)
+                {
+                    throw new UnauthorizedAccessException("Only the course instructor is authorized to manage quiz questions.");
+                }
+
+                var question = new QuizQuestion
+                {
+                    QuizId = quizId,
+                    QuestionText = request.QuestionText
+                };
+
+                var createdQuestion = await _questionRepository.Create(question);
+
+                // Create options
+                var optionsList = new List<QuizOption>();
+                foreach (var optReq in request.Options)
+                {
+                    var opt = new QuizOption
+                    {
+                        QuizQuestionId = createdQuestion.Id,
+                        OptionText = optReq.OptionText,
+                        IsCorrect = optReq.IsCorrect
+                    };
+                    var createdOpt = await _optionRepository.Create(opt);
+                    optionsList.Add(createdOpt);
+                }
+
+                createdQuestion.Options = optionsList;
+                var resp = _mapper.Map<QuizQuestionResponse>(createdQuestion);
+
+                await dbTransaction.CommitAsync();
+                return resp;
+            }
+            catch (Exception)
+            {
+                await dbTransaction.RollbackAsync();
+                throw;
+            }
         }
 
-        public async Task<bool> UpdateQuestionAsync(int questionId, QuizQuestionRequest request)
+        public async Task<bool> UpdateQuestionAsync(int questionId, QuizQuestionRequest request, Guid userGuid)
         {
+            using var dbTransaction = await _context.Database.BeginTransactionAsync();
+            try
+            {
+                var user = await _userRepository.Get(userGuid);
+                if (user == null)
+                    throw new NotFoundException(nameof(User), userGuid);
+
+                var question = await _questionRepository.Get(questionId);
+                if (question == null) return false;
+
+                var quiz = await _quizRepository.Get(question.QuizId);
+                if (quiz == null) return false;
+
+                var course = await _courseRepository.Get(quiz.CourseId);
+                if (course == null) return false;
+
+                // Admins and other users cannot edit quizzes. Only the owning Instructor can.
+                if (course.InstructorId != user.Id)
+                {
+                    throw new UnauthorizedAccessException("Only the course instructor is authorized to manage quiz questions.");
+                }
+
+                question.QuestionText = request.QuestionText;
+                await _questionRepository.Update(question);
+
+                // Re-create options: delete old, add new
+                var oldOptions = await GetOptionsForQuestionAsync(questionId);
+                foreach (var opt in oldOptions)
+                {
+                    await _optionRepository.Delete(opt);
+                }
+
+                foreach (var optReq in request.Options)
+                {
+                    var opt = new QuizOption
+                    {
+                        QuizQuestionId = questionId,
+                        OptionText = optReq.OptionText,
+                        IsCorrect = optReq.IsCorrect
+                    };
+                    await _optionRepository.Create(opt);
+                }
+
+                await dbTransaction.CommitAsync();
+                return true;
+            }
+            catch (Exception)
+            {
+                await dbTransaction.RollbackAsync();
+                throw;
+            }
+        }
+
+        public async Task<bool> DeleteQuestionAsync(int questionId, Guid userGuid)
+        {
+            var user = await _userRepository.Get(userGuid);
+            if (user == null)
+                throw new NotFoundException(nameof(User), userGuid);
+
             var question = await _questionRepository.Get(questionId);
             if (question == null) return false;
 
-            question.QuestionText = request.QuestionText;
-            await _questionRepository.Update(question);
+            var quiz = await _quizRepository.Get(question.QuizId);
+            if (quiz == null) return false;
 
-            // Re-create options: delete old, add new
-            var oldOptions = await GetOptionsForQuestionAsync(questionId);
-            foreach (var opt in oldOptions)
+            var course = await _courseRepository.GetCourseWithDetailsAsync(quiz.CourseId);
+            if (course == null) return false;
+
+            // Only the owning Instructor can delete questions. Admins cannot.
+            if (course.InstructorId != user.Id)
             {
-                await _optionRepository.Delete(opt);
+                throw new UnauthorizedAccessException("Only the course instructor is authorized to manage quiz questions.");
             }
 
-            foreach (var optReq in request.Options)
+            // Cannot delete if there are active learners
+            bool hasActiveEnrollments = course.Enrollments != null &&
+                                       course.Enrollments.Any(e => e.Status == EnrollmentStatus.Active);
+
+            if (hasActiveEnrollments)
             {
-                var opt = new QuizOption
-                {
-                    QuizQuestionId = questionId,
-                    OptionText = optReq.OptionText,
-                    IsCorrect = optReq.IsCorrect
-                };
-                await _optionRepository.Create(opt);
+                throw new InvalidOperationException("Cannot delete course materials while there are active learners in the course.");
             }
-
-            return true;
-        }
-
-        public async Task<bool> DeleteQuestionAsync(int questionId)
-        {
-            var question = await _questionRepository.Get(questionId);
-            if (question == null) return false;
 
             await _questionRepository.Delete(question);
             return true;
@@ -219,6 +363,19 @@ namespace LMS.BLL.Services
             if (user == null)
             {
                 throw new NotFoundException("User", userGuid);
+            }
+
+            var course = await _courseRepository.Get(quiz.CourseId);
+
+            // Verify authorization: only Enrolled students, course Instructor, or Admins can submit the quiz
+            var enrollments = await _enrollmentRepository.GetEnrollmentsByUserIdAsync(user.Id);
+            bool isEnrolled = enrollments.Any(e => e.CourseId == quiz.CourseId && (e.Status == EnrollmentStatus.Active || e.Status == EnrollmentStatus.Completed));
+            bool isInstructor = course != null && course.InstructorId == user.Id;
+            bool isAdmin = user.Role?.Name?.Equals("Admin", StringComparison.OrdinalIgnoreCase) ?? false;
+
+            if (!isAdmin && !isInstructor && !isEnrolled)
+            {
+                throw new UnauthorizedAccessException("You must be enrolled in the course to submit this quiz.");
             }
 
             var questions = await GetQuestionsForQuizAsync(quizId);

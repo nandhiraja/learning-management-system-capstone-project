@@ -7,6 +7,7 @@ using AutoMapper;
 using LMS.BLL.Interfaces;
 using LMS.Core.DTOs;
 using LMS.Core.Models;
+using LMS.Core.Enums;
 using LMS.DAL.Interfaces;
 
 namespace LMS.BLL.Services
@@ -55,6 +56,11 @@ namespace LMS.BLL.Services
         {
             var course = await _courseRepository.Get(courseId);
             if (course == null) return false;
+
+            if (course.Status != CourseStatus.Published)
+            {
+                throw new InvalidOperationException("You can only add published courses to the cart.");
+            }
 
             var courseIds = _carts.GetOrAdd(userGuid, _ => new List<int>());
             lock (courseIds)

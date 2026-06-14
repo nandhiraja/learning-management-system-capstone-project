@@ -13,12 +13,14 @@ namespace LMS.BLL.Mappers
             // User mappings
             CreateMap<User, RegisterResponse>();
             CreateMap<User, UserEditResponse>();
-            CreateMap<User, UserProfileResponse>();
+            CreateMap<User, UserProfileResponse>()
+                .ForMember(dest => dest.Role, opt => opt.MapFrom(src => src.Role != null ? src.Role.Name : string.Empty));
             CreateMap<RegisterRequest, User>();
             CreateMap<UserEditRequest, User>();
 
             // Course mappings
-            CreateMap<Course, CourseResponse>();
+            CreateMap<Course, CourseResponse>()
+                .ForMember(dest => dest.Language, opt => opt.MapFrom(src => src.Language != null ? src.Language.Name : string.Empty));
             CreateMap<CourseCreateRequest, Course>();
             CreateMap<CourseUpdateRequest, Course>();
 
@@ -27,7 +29,8 @@ namespace LMS.BLL.Mappers
             CreateMap<CourseSectionRequest, CourseSection>();
 
             // Lecture mappings
-            CreateMap<Lecture, LectureResponse>();
+            CreateMap<Lecture, LectureResponse>()
+                .ForMember(dest => dest.QuizId, opt => opt.MapFrom(src => src.Quizzes != null && src.Quizzes.Any() ? src.Quizzes.First().Id : (int?)null));
             CreateMap<LectureRequest, Lecture>()
                 .ForMember(dest => dest.ContentType, opt => opt.MapFrom(src => Enum.Parse<ContentType>(src.ContentType, true)));
 
@@ -49,7 +52,7 @@ namespace LMS.BLL.Mappers
             CreateMap<PaymentCreateRequest, Payment>()
                 .ForMember(dest => dest.PaymentMethod, opt => opt.MapFrom(src => Enum.Parse<PaymentMethod>(src.PaymentMethod, true)));
 
-            // Enrollment mappings (Leverages AutoMapper member flattening for Course.ExternalId -> CourseExternalId and Course.Title -> CourseTitle)
+            // Enrollment mappings 
             CreateMap<Enrollment, EnrollmentResponse>();
 
             // Cart mappings
@@ -65,7 +68,21 @@ namespace LMS.BLL.Mappers
             CreateMap<ReviewRequest, CourseReview>();
 
             // Certificate mappings
-            CreateMap<Certificate, CertificateResponse>();
+            CreateMap<Certificate, CertificateResponse>()
+                .ForMember(dest => dest.UserGuid, opt => opt.MapFrom(src => src.User != null ? src.User.ExternalId : Guid.Empty))
+                .ForMember(dest => dest.UserFullName, opt => opt.MapFrom(src => src.User != null ? ($"{src.User.FirstName} {src.User.LastName}").Trim() : string.Empty))
+                .ForMember(dest => dest.UserEmail, opt => opt.MapFrom(src => src.User != null ? src.User.Email : string.Empty))
+                .ForMember(dest => dest.CourseGuid, opt => opt.MapFrom(src => src.Course != null ? src.Course.ExternalId : Guid.Empty))
+                .ForMember(dest => dest.CourseTitle, opt => opt.MapFrom(src => src.Course != null ? src.Course.Title : string.Empty))
+                .ForMember(dest => dest.InstructorName, opt => opt.MapFrom(src => src.Course != null && src.Course.Instructor != null ? ($"{src.Course.Instructor.FirstName} {src.Course.Instructor.LastName}").Trim() : string.Empty));
+
+            // Discussion mappings
+            CreateMap<Discussion, DiscussionResponse>()
+                .ForMember(dest => dest.RepliesCount, opt => opt.MapFrom(src => src.Replies != null ? src.Replies.Count : 0))
+                .ForMember(dest => dest.LectureTitle, opt => opt.MapFrom(src => src.Lecture != null ? src.Lecture.Title : null));
+            CreateMap<Discussion, DiscussionDetailResponse>()
+                .ForMember(dest => dest.LectureTitle, opt => opt.MapFrom(src => src.Lecture != null ? src.Lecture.Title : null));
+            CreateMap<DiscussionReply, DiscussionReplyResponse>();
         }
     }
 }

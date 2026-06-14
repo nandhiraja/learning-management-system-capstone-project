@@ -7,9 +7,9 @@ namespace LMS.BLL.Interfaces
 {
     public interface ICourseSectionService
     {
-        Task<CourseSectionResponse> CreateSectionAsync(Guid courseGuid, CourseSectionRequest request);
+        Task<CourseSectionResponse> CreateSectionAsync(Guid courseGuid, CourseSectionRequest request, Guid userGuid);
         Task<IEnumerable<CourseSectionResponse>> GetSectionsByCourseIdAsync(Guid courseGuid);
-        Task<bool> UpdateSectionAsync(int sectionId, CourseSectionRequest request);
-        Task<bool> DeleteSectionAsync(int sectionId);
+        Task<bool> UpdateSectionAsync(int sectionId, CourseSectionRequest request, Guid userGuid);
+        Task<bool> DeleteSectionAsync(int sectionId, Guid userGuid);
     }
 }

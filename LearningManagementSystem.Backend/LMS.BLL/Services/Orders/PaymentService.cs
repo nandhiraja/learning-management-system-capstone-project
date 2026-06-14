@@ -1,4 +1,7 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text.Json;
 using System.Threading.Tasks;
 using AutoMapper;
 using LMS.BLL.Interfaces;
@@ -7,6 +10,10 @@ using LMS.Core.Enums;
 using LMS.Core.Exception;
 using LMS.Core.Models;
 using LMS.DAL.Interfaces;
+using LMS.DAL.Data;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
+using LMS.BLL.Services.Orders.Gateways;
 
 namespace LMS.BLL.Services
 {
@@ -18,6 +25,10 @@ namespace LMS.BLL.Services
         private readonly IUserRepository _userRepository;
         private readonly ICartService _cartService;
         private readonly IMapper _mapper;
+        private readonly IEnumerable<IPaymentGateway> _gateways;
+        private readonly LMSDBContext _context;
+        private readonly IConfiguration _configuration;
+        private readonly ILogger<PaymentService> _logger;
 
         public PaymentService(
             IPaymentRepository paymentRepository,
@@ -25,7 +36,11 @@ namespace LMS.BLL.Services
             IEnrollmentRepository enrollmentRepository,
             IUserRepository userRepository,
             ICartService cartService,
-            IMapper mapper)
+            IMapper mapper,
+            IEnumerable<IPaymentGateway> gateways,
+            LMSDBContext context,
+            IConfiguration configuration,
+            ILogger<PaymentService> logger)
         {
             _paymentRepository = paymentRepository;
             _orderRepository = orderRepository;
@@ -33,6 +48,24 @@ namespace LMS.BLL.Services
             _userRepository = userRepository;
             _cartService = cartService;
             _mapper = mapper;
+            _gateways = gateways;
+            _context = context;
+            _configuration = configuration;
+            _logger = logger;
+        }
+
+        private IPaymentGateway GetGateway(PaymentMethod method)
+        {
+            var gateway = _gateways.FirstOrDefault(g => g.SupportedMethod == method);
+            if (gateway != null)
+                return gateway;
+
+            // Fallback to DefaultMockPaymentGateway
+            var fallback = _gateways.FirstOrDefault(g => g is DefaultMockPaymentGateway);
+            if (fallback != null)
+                return fallback;
+
+            throw new InvalidOperationException($"No payment gateway registered for method: {method}");
         }
 
         public async Task<PaymentResponse> CreatePaymentAsync(PaymentCreateRequest request)
@@ -41,16 +74,30 @@ namespace LMS.BLL.Services
             if (order == null)
                 throw new NotFoundException(nameof(Order), request.OrderId);
 
+            if (order.Status == OrderStatus.Completed)
+                throw new InvalidOperationException("This order has already been completed.");
+
+            // Check if there is already a successful payment record for this order
+            var existingPayment = await _paymentRepository.GetPaymentByOrderIdAsync(order.Id);
+            if (existingPayment != null && existingPayment.Status == PaymentStatus.Success)
+            {
+                throw new InvalidOperationException("Payment for this order has already been completed.");
+            }
+
             if (!Enum.TryParse<PaymentMethod>(request.PaymentMethod, true, out var method))
                 throw new ArgumentException($"Invalid payment method: {request.PaymentMethod}");
 
-            // Create a pending payment
+            var currency = _configuration["PayPal:Currency"] ?? "USD";
+            var gateway = GetGateway(method);
+            var (transactionId, paymentUrl) = await gateway.CreateOrderAsync(order.Id, order.Amount, currency);
+
+            // Create payment record
             var payment = new Payment
             {
                 OrderId = order.Id,
                 Amount = order.Amount,
                 PaymentMethod = method,
-                TransactionId = Guid.NewGuid().ToString(),
+                TransactionId = transactionId ?? Guid.NewGuid().ToString(),
                 Status = PaymentStatus.Pending,
                 PaymentDate = DateTime.UtcNow
             };
@@ -58,8 +105,7 @@ namespace LMS.BLL.Services
             var createdPayment = await _paymentRepository.Create(payment);
 
             var response = _mapper.Map<PaymentResponse>(createdPayment);
-            // Mock payment url redirecting to sandbox verification
-            response.PaymentUrl = $"https://checkout.sandbox.lms.com/pay/{payment.TransactionId}?paymentId={createdPayment.Id}";
+            response.PaymentUrl = paymentUrl;
 
             return response;
         }
@@ -82,8 +128,8 @@ namespace LMS.BLL.Services
 
             try
             {
-                var jsonStr = System.Text.Json.JsonSerializer.Serialize(gatewayPayload);
-                var doc = System.Text.Json.JsonDocument.Parse(jsonStr);
+                var jsonStr = JsonSerializer.Serialize(gatewayPayload);
+                var doc = JsonDocument.Parse(jsonStr);
                 var root = doc.RootElement;
 
                 // Try to find paymentId
@@ -133,54 +179,83 @@ namespace LMS.BLL.Services
 
             if (payment == null) return false;
 
-            bool isSuccess = status.Equals("Success", StringComparison.OrdinalIgnoreCase) || 
-                              status.Equals("Succeeded", StringComparison.OrdinalIgnoreCase) ||
-                              status.Equals("Completed", StringComparison.OrdinalIgnoreCase);
-
-            if (isSuccess)
+            // Idempotency: if payment is already processed, skip re-verification and return true
+            if (payment.Status != PaymentStatus.Pending)
             {
-                payment.Status = PaymentStatus.Success;
-                await _paymentRepository.Update(payment);
-
-                var order = await _orderRepository.GetOrderWithDetailsAsync(payment.OrderId);
-                if (order != null)
-                {
-                    order.Status = OrderStatus.Completed;
-                    await _orderRepository.Update(order);
-
-                    // Create enrollment for each course
-                    foreach (var item in order.OrderItems)
-                    {
-                        var enrollment = new Enrollment
-                        {
-                            CourseId = item.CourseId,
-                            UserId = order.UserId,
-                            OrderItemId = item.Id,
-                            Status = EnrollmentStatus.Active,
-                            EnrolledAt = DateTime.UtcNow
-                        };
-                        await _enrollmentRepository.Create(enrollment);
-                    }
-
-                    // Clear the user's cart
-                    var user = await _userRepository.GetUserWithRoleAsync(order.UserId);
-                    if (user != null)
-                    {
-                        await _cartService.ClearCartAsync(user.ExternalId);
-                    }
-                }
+                _logger.LogInformation($"Payment {payment.Id} has already been processed with status: {payment.Status}. Skipping duplicate request.");
+                return true;
             }
-            else
-            {
-                payment.Status = PaymentStatus.Failed;
-                await _paymentRepository.Update(payment);
 
-                var order = await _orderRepository.Get(payment.OrderId);
-                if (order != null)
+            var gateway = GetGateway(payment.PaymentMethod);
+            bool isSuccess = await gateway.VerifyPaymentAsync(payment.TransactionId, status, gatewayPayload);
+
+            // Execute operations under a database transaction to ensure consistency
+            using var dbTransaction = await _context.Database.BeginTransactionAsync();
+            try
+            {
+                if (isSuccess)
                 {
-                    order.Status = OrderStatus.Cancelled;
-                    await _orderRepository.Update(order);
+                    payment.Status = PaymentStatus.Success;
+                    await _paymentRepository.Update(payment);
+
+                    var order = await _orderRepository.GetOrderWithDetailsAsync(payment.OrderId);
+                    if (order != null)
+                    {
+                        order.Status = OrderStatus.Completed;
+                        await _orderRepository.Update(order);
+
+                        // Fetch existing enrollments to prevent DB unique key constraint conflicts
+                        var existingEnrollments = await _enrollmentRepository.GetEnrollmentsByUserIdAsync(order.UserId);
+                        var enrolledCourseIds = existingEnrollments.Select(e => e.CourseId).ToHashSet();
+
+                        // Create enrollment for each course
+                        foreach (var item in order.OrderItems)
+                        {
+                            if (enrolledCourseIds.Contains(item.CourseId))
+                            {
+                                _logger.LogInformation($"User {order.UserId} is already enrolled in Course {item.CourseId}. Skipping duplicate creation.");
+                                continue;
+                            }
+
+                            var enrollment = new Enrollment
+                            {
+                                CourseId = item.CourseId,
+                                UserId = order.UserId,
+                                OrderItemId = item.Id,
+                                Status = EnrollmentStatus.Active,
+                                EnrolledAt = DateTime.UtcNow
+                            };
+                            await _enrollmentRepository.Create(enrollment);
+                        }
+
+                        // Clear the user's cart
+                        var user = await _userRepository.GetUserWithRoleAsync(order.UserId);
+                        if (user != null)
+                        {
+                            await _cartService.ClearCartAsync(user.ExternalId);
+                        }
+                    }
                 }
+                else
+                {
+                    payment.Status = PaymentStatus.Failed;
+                    await _paymentRepository.Update(payment);
+
+                    var order = await _orderRepository.Get(payment.OrderId);
+                    if (order != null)
+                    {
+                        order.Status = OrderStatus.Cancelled;
+                        await _orderRepository.Update(order);
+                    }
+                }
+
+                await dbTransaction.CommitAsync();
+            }
+            catch (Exception ex)
+            {
+                await dbTransaction.RollbackAsync();
+                _logger.LogError(ex, $"Transaction failed while verifying payment {payment.Id}");
+                throw;
             }
 
             return true;

@@ -17,17 +17,20 @@ namespace LMS.BLL.Services
         private readonly IOrderRepository _orderRepository;
         private readonly IUserRepository _userRepository;
         private readonly ICourseRepository _courseRepository;
+        private readonly IEnrollmentRepository _enrollmentRepository;
         private readonly IMapper _mapper;
 
         public OrderService(
             IOrderRepository orderRepository,
             IUserRepository userRepository,
             ICourseRepository courseRepository,
+            IEnrollmentRepository enrollmentRepository,
             IMapper mapper)
         {
             _orderRepository = orderRepository;
             _userRepository = userRepository;
             _courseRepository = courseRepository;
+            _enrollmentRepository = enrollmentRepository;
             _mapper = mapper;
         }
 
@@ -37,8 +40,19 @@ namespace LMS.BLL.Services
             if (user == null)
                 throw new NotFoundException(nameof(User), userGuid);
 
+            if (!user.IsActive)
+                throw new InvalidOperationException("Your account is deactivated. Cannot place order.");
+
             if (request.CourseIds == null || !request.CourseIds.Any())
                 throw new InvalidOperationException("Cannot create an order with no courses.");
+
+            // Prevent duplicate courses in the same checkout order
+            if (request.CourseIds.Distinct().Count() != request.CourseIds.Count())
+                throw new ArgumentException("Duplicate courses in order creation request are not allowed.");
+
+            // Check existing enrollments to prevent purchasing courses the user already owns
+            var existingEnrollments = await _enrollmentRepository.GetEnrollmentsByUserIdAsync(user.Id);
+            var enrolledCourseIds = existingEnrollments.Select(e => e.CourseId).ToHashSet();
 
             var orderItems = new List<OrderItem>();
             decimal totalAmount = 0;
@@ -48,6 +62,12 @@ namespace LMS.BLL.Services
                 var course = await _courseRepository.Get(courseId);
                 if (course == null)
                     throw new NotFoundException(nameof(Course), courseId);
+
+                if (course.Status != CourseStatus.Published)
+                    throw new InvalidOperationException($"The course '{course.Title}' is not published and cannot be purchased.");
+
+                if (enrolledCourseIds.Contains(course.Id))
+                    throw new InvalidOperationException($"You are already enrolled in the course: {course.Title}");
 
                 decimal discountPrice = course.Price * course.DiscountPercentage / 100m;
                 decimal finalPrice = course.Price - discountPrice;

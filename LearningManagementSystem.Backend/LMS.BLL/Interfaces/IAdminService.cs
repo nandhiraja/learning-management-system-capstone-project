@@ -12,6 +12,7 @@ namespace LMS.BLL.Interfaces
         Task<IEnumerable<OrderResponse>> GetOrdersAsync();
         Task<IEnumerable<PaymentResponse>> GetPaymentsAsync();
         Task<IEnumerable<CourseResponse>> GetPendingCoursesAsync();
+        Task<IEnumerable<CourseResponse>> GetAdminCoursesAsync();
     }
 
 
@@ -20,5 +21,8 @@ namespace LMS.BLL.Interfaces
         public int Users { get; set; }
         public int Courses { get; set; }
         public int Orders { get; set; }
+        public decimal TotalRevenue { get; set; }
+        public int PendingCoursesCount { get; set; }
+        public int BlockedUsersCount { get; set; }
     }
 }

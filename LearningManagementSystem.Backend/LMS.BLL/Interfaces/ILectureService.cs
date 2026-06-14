@@ -5,10 +5,10 @@ namespace LMS.BLL.Interfaces
 {
     public interface ILectureService
     {
-        Task<LectureResponse> CreateLectureAsync(int sectionId, LectureRequest request);
-        Task<LectureResponse?> GetLectureByIdAsync(int lectureId, Guid userGuid);
-        Task<bool> UpdateLectureAsync(int lectureId, LectureRequest request);
-        Task<bool> DeleteLectureAsync(int lectureId);
-        Task<bool> UploadLectureContentAsync(int lectureId, string fileUrl);
+        Task<LectureResponse> CreateLectureAsync(int sectionId, LectureRequest request, System.Guid userGuid);
+        Task<LectureResponse?> GetLectureByIdAsync(int lectureId, System.Guid userGuid);
+        Task<bool> UpdateLectureAsync(int lectureId, LectureRequest request, System.Guid userGuid);
+        Task<bool> DeleteLectureAsync(int lectureId, System.Guid userGuid);
+        Task<bool> UploadLectureContentAsync(int lectureId, string fileUrl, System.Guid userGuid);
     }
 }
