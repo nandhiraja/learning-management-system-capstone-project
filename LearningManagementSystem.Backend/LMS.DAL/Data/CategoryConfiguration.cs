@@ -14,8 +14,15 @@ namespace LMS.DAL.Data
                 .IsRequired()
                 .HasMaxLength(100);
 
+            builder.HasIndex(cat => cat.Name)
+                .IsUnique();
+
             builder.Property(cat => cat.CreatedAt)
                 .IsRequired();
+
+            builder.Property(cat => cat.IsApproved)
+                .IsRequired()
+                .HasDefaultValue(false);
         }
     }
 }

@@ -10,7 +10,7 @@ namespace LMS.DAL.Data
         {
             builder.HasKey(q => q.Id);
 
-            builder.Property(q => q.QuizName)
+            builder.Property(q => q.Title)
                 .IsRequired()
                 .HasMaxLength(100);
 
@@ -20,7 +20,7 @@ namespace LMS.DAL.Data
             builder.Property(q => q.TotalMarks)
                 .IsRequired();
 
-            builder.Property(q => q.PassingMarks)
+            builder.Property(q => q.PassScore)
                 .IsRequired();
 
             builder.Property(q => q.MaxAttempts)

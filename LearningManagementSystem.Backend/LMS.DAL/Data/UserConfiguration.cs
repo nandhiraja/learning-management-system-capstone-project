@@ -10,6 +10,13 @@ namespace LMS.DAL.Data
         {
             builder.HasKey(u => u.Id);
 
+            builder.Property(u => u.ExternalId)
+                .IsRequired()
+                .HasDefaultValueSql("gen_random_uuid()");
+
+            builder.HasIndex(u => u.ExternalId)
+                .IsUnique();
+
             builder.Property(u => u.UserName)
                 .IsRequired()
                 .HasMaxLength(50);
@@ -46,6 +53,8 @@ namespace LMS.DAL.Data
 
             builder.Property(u => u.UpdatedAt)
                 .IsRequired();
+
+
 
             // Configure relationships
             builder.HasOne(u => u.Role)

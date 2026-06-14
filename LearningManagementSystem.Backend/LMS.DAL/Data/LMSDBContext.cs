@@ -10,6 +10,7 @@ namespace LMS.DAL.Data
         }
 
         public DbSet<User> Users { get; set; }
+        public DbSet<UserRefreshToken> UserRefreshTokens { get; set; }
         public DbSet<Role> Roles { get; set; }
         public DbSet<Course> Courses { get; set; }
         public DbSet<CourseSection> CourseSections { get; set; }
@@ -26,6 +27,8 @@ namespace LMS.DAL.Data
         public DbSet<Payment> Payments { get; set; }
         public DbSet<Category> Categories { get; set; }
         public DbSet<Language> Languages { get; set; }
+        public DbSet<Discussion> Discussions { get; set; }
+        public DbSet<DiscussionReply> DiscussionReplies { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {

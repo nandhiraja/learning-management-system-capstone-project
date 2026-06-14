@@ -13,6 +13,16 @@ namespace LMS.DAL.Data
             builder.Property(l => l.Name)
                 .IsRequired()
                 .HasMaxLength(50);
+
+            builder.HasIndex(l => l.Name)
+                .IsUnique();
+
+            builder.Property(l => l.IsApproved)
+                .IsRequired()
+                .HasDefaultValue(false);
+
+            builder.Property(l => l.CreatedAt)
+                .IsRequired();
         }
     }
 }

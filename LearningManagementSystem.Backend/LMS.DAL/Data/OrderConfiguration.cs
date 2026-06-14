@@ -10,6 +10,13 @@ namespace LMS.DAL.Data
         {
             builder.HasKey(o => o.Id);
 
+            builder.Property(o => o.ExternalId)
+                .IsRequired()
+                .HasDefaultValueSql("gen_random_uuid()");
+
+            builder.HasIndex(o => o.ExternalId)
+                .IsUnique();
+
             builder.Property(o => o.Status)
                 .IsRequired();
 
