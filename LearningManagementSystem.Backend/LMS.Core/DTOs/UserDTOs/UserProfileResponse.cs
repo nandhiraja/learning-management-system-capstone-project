@@ -4,6 +4,7 @@ namespace LMS.Core.DTOs
 {
     public class UserProfileResponse
     {
+        public int Id { get; set; }
         public Guid ExternalId { get; set; }
         public string FirstName { get; set; } = null!;
         public string LastName { get; set; } = null!;

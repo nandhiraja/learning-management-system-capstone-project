@@ -5,6 +5,7 @@ namespace LMS.Core.DTOs
 {
     public class CourseResponse
     {
+        public int Id { get; set; }
         public Guid ExternalId { get; set; }
         public string Title { get; set; } = null!;
         public string Description { get; set; } = null!;
