@@ -21,6 +21,7 @@ namespace LMS.DAL.Repositories
                 .Include(c => c.Instructor)
                 .Include(c => c.Category)
                 .Include(c => c.Language)
+                .Include(c => c.CourseReviews)
                 .ToListAsync();
         }
 
@@ -30,8 +31,10 @@ namespace LMS.DAL.Repositories
                 .Include(c => c.Instructor)
                 .Include(c => c.Category)
                 .Include(c => c.Language)
+                .Include(c => c.Enrollments)
                 .Include(c => c.Sections)
                     .ThenInclude(s => s.Lectures)
+                        .ThenInclude(l => l.Quizzes)
                 .FirstOrDefaultAsync(c => c.Id == id);
         }
 
@@ -41,14 +44,21 @@ namespace LMS.DAL.Repositories
                 .Include(c => c.Instructor)
                 .Include(c => c.Category)
                 .Include(c => c.Language)
+                .Include(c => c.Enrollments)
                 .Include(c => c.Sections)
                     .ThenInclude(s => s.Lectures)
+                        .ThenInclude(l => l.Quizzes)
                 .FirstOrDefaultAsync(c => c.ExternalId == externalId);
         }
 
         public async Task<int> GetCountAsync()
         {
             return await _context.Courses.CountAsync();
+        }
+
+        public async Task<int> GetPendingCoursesCountAsync()
+        {
+            return await _context.Courses.CountAsync(c => c.Status == CourseStatus.PendingReview);
         }
 
         public async Task<IEnumerable<Course>> GetPendingCoursesAsync()

@@ -17,6 +17,7 @@ namespace LMS.DAL.Repositories
         public async Task<IEnumerable<Lecture>> GetLecturesBySectionIdAsync(int sectionId)
         {
             return await _context.Lectures
+                .Include(l => l.Quizzes)
                 .Where(l => l.CourseSectionId == sectionId)
                 .ToListAsync();
         }
@@ -24,6 +25,7 @@ namespace LMS.DAL.Repositories
         public async Task<Lecture?> GetLectureWithDetailsAsync(int lectureId)
         {
             return await _context.Lectures
+                .Include(l => l.Quizzes)
                 .Include(l => l.CourseSection)
                     .ThenInclude(s => s.Course)
                         .ThenInclude(c => c.Enrollments)

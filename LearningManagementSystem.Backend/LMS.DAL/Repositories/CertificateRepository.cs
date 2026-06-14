@@ -14,11 +14,22 @@ namespace LMS.DAL.Repositories
         {
         }
 
+        public override async Task<Certificate?> Get(int id)
+        {
+            return await _context.Certificates
+                .Include(c => c.User)
+                .Include(c => c.Course)
+                    .ThenInclude(co => co.Instructor)
+                .FirstOrDefaultAsync(c => c.Id == id);
+        }
+
         public async Task<IEnumerable<Certificate>> GetCertificatesByUserIdAsync(int userId)
         {
             return await _context.Certificates
                 .Where(c => c.UserId == userId)
+                .Include(c => c.User)
                 .Include(c => c.Course)
+                    .ThenInclude(co => co.Instructor)
                 .ToListAsync();
         }
     }

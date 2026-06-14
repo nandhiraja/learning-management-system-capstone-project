@@ -38,11 +38,24 @@ namespace LMS.DAL.Repositories
             return await _context.Users.CountAsync();
         }
 
+        public async Task<int> GetBlockedUsersCountAsync()
+        {
+            return await _context.Users.CountAsync(u => !u.IsActive);
+        }
+
         public async Task<User?> GetUserByRefreshTokenAsync(string refreshToken)
         {
             return await _context.Users
                 .Include(u => u.Role)
-                .FirstOrDefaultAsync(u => u.RefreshToken == refreshToken);
+                .Include(u => u.RefreshTokens)
+                .FirstOrDefaultAsync(u => u.RefreshTokens.Any(t => t.Token == refreshToken));
+        }
+
+        public override async Task<IEnumerable<User>> GetAllAsync()
+        {
+            return await _context.Users
+                .Include(u => u.Role)
+                .ToListAsync();
         }
     }
 }

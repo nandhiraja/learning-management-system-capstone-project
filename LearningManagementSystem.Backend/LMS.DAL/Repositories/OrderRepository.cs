@@ -47,6 +47,13 @@ namespace LMS.DAL.Repositories
                 .SumAsync(oi => oi.FinalPrice);
         }
 
+        public async Task<decimal> GetTotalRevenueAsync()
+        {
+            return await _context.Orders
+                .Where(o => o.Status == OrderStatus.Completed)
+                .SumAsync(o => o.Amount);
+        }
+
         public async Task<int> GetCountAsync()
         {
             return await _context.Orders.CountAsync();

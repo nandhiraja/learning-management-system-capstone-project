@@ -21,5 +21,12 @@ namespace LMS.DAL.Repositories
                 .Include(r => r.User)
                 .ToListAsync();
         }
+
+        public async Task<IEnumerable<CourseReview>> GetReviewsByCourseIdsAsync(IEnumerable<int> courseIds)
+        {
+            return await _context.CourseReviews
+                .Where(r => courseIds.Contains(r.CourseId))
+                .ToListAsync();
+        }
     }
 }
