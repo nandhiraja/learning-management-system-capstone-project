@@ -9,5 +9,9 @@ namespace LMS.BLL.Interfaces
     {
         Task<IEnumerable<Order>> GetOrdersByUserIdAsync(int userId);
         Task<Order?> GetOrderWithDetailsAsync(int id);
+        Task<Order?> GetByExternalIdAsync(Guid externalId);
+        Task<decimal> GetRevenueByCourseIdsAsync(IEnumerable<int> courseIds);
+        Task<decimal> GetTotalRevenueAsync();
+        Task<int> GetCountAsync();
     }
 }

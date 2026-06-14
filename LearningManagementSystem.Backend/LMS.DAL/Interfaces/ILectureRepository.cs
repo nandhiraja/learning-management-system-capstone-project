@@ -8,5 +8,7 @@ namespace LMS.BLL.Interfaces
     public interface ILectureRepository : IRepository<int, Lecture>
     {
         Task<IEnumerable<Lecture>> GetLecturesBySectionIdAsync(int sectionId);
+        Task<Lecture?> GetLectureWithDetailsAsync(int lectureId);
     }
 }
+

@@ -8,5 +8,6 @@ namespace LMS.BLL.Interfaces
     public interface ICourseReviewRepository : IRepository<int, CourseReview>
     {
         Task<IEnumerable<CourseReview>> GetReviewsByCourseIdAsync(int courseId);
+        Task<IEnumerable<CourseReview>> GetReviewsByCourseIdsAsync(IEnumerable<int> courseIds);
     }
 }

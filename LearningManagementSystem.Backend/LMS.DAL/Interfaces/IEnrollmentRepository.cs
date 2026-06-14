@@ -9,5 +9,7 @@ namespace LMS.BLL.Interfaces
     {
         Task<IEnumerable<Enrollment>> GetEnrollmentsByUserIdAsync(int userId);
         Task<Enrollment?> GetEnrollmentWithDetailsAsync(int id);
+        Task<IEnumerable<Enrollment>> GetEnrollmentsByCourseIdWithUserAsync(int courseId);
+        Task<IEnumerable<Enrollment>> GetEnrollmentsByCourseIdsAsync(IEnumerable<int> courseIds);
     }
 }

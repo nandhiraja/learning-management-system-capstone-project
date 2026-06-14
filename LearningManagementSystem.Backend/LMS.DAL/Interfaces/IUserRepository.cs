@@ -4,9 +4,12 @@ using System.Threading.Tasks;
 
 namespace LMS.BLL.Interfaces
 {
-    public interface IUserRepository : IRepository<int, User>
+    public interface IUserRepository : IRepository<Guid, User>
     {
         Task<User?> GetUserByEmailAsync(string email);
         Task<User?> GetUserWithRoleAsync(int id);
+        Task<int> GetCountAsync();
+        Task<int> GetBlockedUsersCountAsync();
+        Task<User?> GetUserByRefreshTokenAsync(string refreshToken);
     }
 }

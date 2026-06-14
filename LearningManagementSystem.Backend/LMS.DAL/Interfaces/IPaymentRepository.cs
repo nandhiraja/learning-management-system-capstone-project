@@ -7,5 +7,6 @@ namespace LMS.BLL.Interfaces
     public interface IPaymentRepository : IRepository<int, Payment>
     {
         Task<Payment?> GetPaymentByOrderIdAsync(int orderId);
+        Task<Payment?> GetPaymentByTransactionIdAsync(string transactionId);
     }
 }
