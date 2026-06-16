@@ -21,6 +21,7 @@ namespace LMS.BLL.Services
         private readonly ILanguageRepository _languageRepository;
         private readonly LMSDBContext _context;
         private readonly IMapper _mapper;
+        private readonly INotificationService _notificationService;
 
         public CourseService(
             ICourseRepository courseRepository,
@@ -28,7 +29,8 @@ namespace LMS.BLL.Services
             ICategoryRepository categoryRepository,
             ILanguageRepository languageRepository,
             LMSDBContext context,
-            IMapper mapper)
+            IMapper mapper,
+            INotificationService notificationService)
         {
             _courseRepository = courseRepository;
             _userRepository = userRepository;
@@ -36,6 +38,7 @@ namespace LMS.BLL.Services
             _languageRepository = languageRepository;
             _context = context;
             _mapper = mapper;
+            _notificationService = notificationService;
         }
 
         public async Task<(IEnumerable<CourseResponse> Items, int TotalCount)> GetCoursesAsync(int page, int pageSize, int? categoryId, string? search)
@@ -155,6 +158,19 @@ namespace LMS.BLL.Services
                 if (instructor == null)
                 {
                     throw new NotFoundException("User", instructorGuid);
+                }
+
+                if (string.IsNullOrWhiteSpace(request.Title))
+                {
+                    throw new ArgumentException("Course title cannot be empty.");
+                }
+
+                var allCourses = await _courseRepository.GetAllAsync() ?? Enumerable.Empty<Course>();
+                var hasDuplicateTitle = allCourses.Any(c => c.InstructorId == instructor.Id && 
+                                                            c.Title.Trim().Equals(request.Title.Trim(), StringComparison.OrdinalIgnoreCase));
+                if (hasDuplicateTitle)
+                {
+                    throw new ArgumentException("A course with this title already exists for this instructor.");
                 }
 
                 var category = await _categoryRepository.Get(request.CategoryId);
@@ -330,6 +346,13 @@ namespace LMS.BLL.Services
             course.Status = CourseStatus.Published;
             course.UpdatedAt = DateTime.UtcNow;
             await _courseRepository.Update(course);
+
+            string emailBody = $@"
+                <h2>Course Approved</h2>
+                <p>We are pleased to inform you that your course '{course.Title}' has been approved and published on LMS.</p>
+                <p>Best regards,<br/>LMS Team</p>";
+            await _notificationService.SendEmailAsync("nandhiraja16@gmail.com", "Course Approved", emailBody);
+
             return true;
         }
 
@@ -341,6 +364,15 @@ namespace LMS.BLL.Services
             course.Status = CourseStatus.Rejected;
             course.UpdatedAt = DateTime.UtcNow;
             await _courseRepository.Update(course);
+
+            string emailBody = $@"
+                <h2>Course Review Rejected</h2>
+                <p>We regret to inform you that your course '{course.Title}' was rejected during our review process.</p>
+                <p><strong>Reason:</strong> {reason}</p>
+                <p>Please address this feedback and resubmit your course.</p>
+                <p>Best regards,<br/>LMS Team</p>";
+            await _notificationService.SendEmailAsync("nandhiraja16@gmail.com", "Course Review Rejected", emailBody);
+
             return true;
         }
 
