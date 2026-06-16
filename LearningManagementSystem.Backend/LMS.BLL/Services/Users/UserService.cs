@@ -16,12 +16,14 @@ namespace LMS.BLL.Services
         private readonly IUserRepository _userRepository;
         private readonly IRoleRepository _roleRepository;
         private readonly IMapper _mapper;
+        private readonly INotificationService _notificationService;
 
-        public UserService(IUserRepository userRepository, IRoleRepository roleRepository, IMapper mapper)
+        public UserService(IUserRepository userRepository, IRoleRepository roleRepository, IMapper mapper, INotificationService notificationService)
         {
             _userRepository = userRepository;
             _roleRepository = roleRepository;
             _mapper = mapper;
+            _notificationService = notificationService;
         }
 
         public async Task<bool> AssignRoleAsync(Guid userGuid, int roleId)
@@ -150,6 +152,15 @@ namespace LMS.BLL.Services
             user.InstructorRequestPending = false;
             user.UpdatedAt = DateTime.UtcNow;
             await _userRepository.Update(user);
+
+            string fullName = ($"{user.FirstName} {user.LastName}").Trim();
+            string emailBody = $@"
+                <h2>Application Approved</h2>
+                <p>Dear {fullName},</p>
+                <p>We are pleased to inform you that your application to become an instructor on LMS has been approved. You now have access to instructor features.</p>
+                <p>Best regards,<br/>LMS Team</p>";
+            await _notificationService.SendEmailAsync("nandhiraja16@gmail.com", "Instructor Application Approved", emailBody);
+
             return true;
         }
 
@@ -162,6 +173,15 @@ namespace LMS.BLL.Services
             user.InstructorRequestPending = false;
             user.UpdatedAt = DateTime.UtcNow;
             await _userRepository.Update(user);
+
+            string fullName = ($"{user.FirstName} {user.LastName}").Trim();
+            string emailBody = $@"
+                <h2>Application Rejected</h2>
+                <p>Dear {fullName},</p>
+                <p>We regret to inform you that your application to become an instructor has been rejected. Please update your profile/details and try again.</p>
+                <p>Best regards,<br/>LMS Team</p>";
+            await _notificationService.SendEmailAsync("nandhiraja16@gmail.com", "Instructor Application Rejected", emailBody);
+
             return true;
         }
 
@@ -182,6 +202,15 @@ namespace LMS.BLL.Services
             user.InstructorRequestPending = false;
             user.UpdatedAt = DateTime.UtcNow;
             await _userRepository.Update(user);
+
+            string fullName = ($"{user.FirstName} {user.LastName}").Trim();
+            string emailBody = $@"
+                <h2>Account Role Demoted</h2>
+                <p>Dear {fullName},</p>
+                <p>Your account role has been demoted back to a Student. If you believe this is in error, please contact administration.</p>
+                <p>Best regards,<br/>LMS Team</p>";
+            await _notificationService.SendEmailAsync("nandhiraja16@gmail.com", "Account Role Demoted", emailBody);
+
             return true;
         }
     }

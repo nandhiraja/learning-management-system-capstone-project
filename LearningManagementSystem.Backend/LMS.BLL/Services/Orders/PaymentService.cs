@@ -29,6 +29,8 @@ namespace LMS.BLL.Services
         private readonly LMSDBContext _context;
         private readonly IConfiguration _configuration;
         private readonly ILogger<PaymentService> _logger;
+        private readonly INotificationService _notificationService;
+        private readonly ICourseRepository _courseRepository;
 
         public PaymentService(
             IPaymentRepository paymentRepository,
@@ -40,7 +42,9 @@ namespace LMS.BLL.Services
             IEnumerable<IPaymentGateway> gateways,
             LMSDBContext context,
             IConfiguration configuration,
-            ILogger<PaymentService> logger)
+            ILogger<PaymentService> logger,
+            INotificationService notificationService,
+            ICourseRepository courseRepository)
         {
             _paymentRepository = paymentRepository;
             _orderRepository = orderRepository;
@@ -52,6 +56,8 @@ namespace LMS.BLL.Services
             _context = context;
             _configuration = configuration;
             _logger = logger;
+            _notificationService = notificationService;
+            _courseRepository = courseRepository;
         }
 
         private IPaymentGateway GetGateway(PaymentMethod method)
@@ -226,6 +232,16 @@ namespace LMS.BLL.Services
                                 EnrolledAt = DateTime.UtcNow
                             };
                             await _enrollmentRepository.Create(enrollment);
+
+                            var course = await _courseRepository.Get(item.CourseId);
+                            if (course != null)
+                            {
+                                string emailBody = $@"
+                                    <h2>Enrollment Successful</h2>
+                                    <p>You have successfully enrolled in the course: <strong>{course.Title}</strong>.</p>
+                                    <p>Happy learning!<br/>LMS Team</p>";
+                                await _notificationService.SendEmailAsync("nandhiraja16@gmail.com", "Enrollment Successful", emailBody);
+                            }
                         }
 
                         // Clear the user's cart
