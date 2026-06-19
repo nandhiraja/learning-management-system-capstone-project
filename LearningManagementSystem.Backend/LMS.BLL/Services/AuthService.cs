@@ -37,10 +37,21 @@ namespace LMS.BLL.Services
 
         public async Task<RegisterResponse> RegisterAsync(RegisterRequest request)
         {
-            var existingUser = await _userRepository.GetUserByEmailAsync(request.Email);
-            if (existingUser != null)
+            var allUsers = await _userRepository.GetAllAsync() ?? Enumerable.Empty<User>();
+
+            if (allUsers.Any(u => !string.IsNullOrEmpty(u.Email) && u.Email.Trim().Equals(request.Email.Trim(), StringComparison.OrdinalIgnoreCase)))
             {
                 throw new ArgumentException("Email is already registered.");
+            }
+
+            if (allUsers.Any(u => !string.IsNullOrEmpty(u.UserName) && u.UserName.Trim().Equals(request.UserName.Trim(), StringComparison.OrdinalIgnoreCase)))
+            {
+                throw new ArgumentException("Username is already registered.");
+            }
+
+            if (allUsers.Any(u => !string.IsNullOrEmpty(u.PhoneNo) && u.PhoneNo.Trim().Equals(request.PhoneNo.Trim(), StringComparison.OrdinalIgnoreCase)))
+            {
+                throw new ArgumentException("Phone number is already registered.");
             }
 
             // Fetch default role (e.g. Student role with ID 1 or name "Student")
@@ -62,7 +73,7 @@ namespace LMS.BLL.Services
                 FirstName = request.FirstName,
                 LastName = request.LastName,
                 Email = request.Email,
-                UserName = request.Email, // default username to email
+                UserName = request.UserName,
                 PhoneNo = request.PhoneNo,
                 PasswordHash = HashPassword(request.Password),
                 RoleId = defaultRole.Id,
