@@ -41,7 +41,7 @@ namespace LMS.BLL.Services
                 await file.CopyToAsync(fileStream);
             }
 
-            return $"/uploads/{folderName}/{uniqueFileName}";
+            return $"http://localhost:5159/files/{folderName}/{uniqueFileName}";
         }
 
         public Task<bool> DeleteFileAsync(string fileUrl)

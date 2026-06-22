@@ -17,7 +17,6 @@ namespace LMS.Core.DTOs
         [StringLength(20)]
         public string PhoneNo { get; set; } = null!;
 
-        [Url(ErrorMessage = "Invalid URL format for profile picture.")]
         [StringLength(1000)]
         public string? ProfilePictureUrl { get; set; }
     }

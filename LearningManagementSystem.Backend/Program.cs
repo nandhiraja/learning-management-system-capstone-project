@@ -11,6 +11,8 @@ using LMS.BLL.Interfaces;
 using LMS.BLL.Services;
 using Microsoft.AspNetCore.RateLimiting;
 using LMS.PL.Middleware;
+using Microsoft.Extensions.FileProviders;
+
 
 AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
 
@@ -181,6 +183,25 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 app.UseCors(MyAllowSpecificOrigins); // Apply the policy
+
+var uploadsFullPath = Path.Combine(
+    Directory.GetCurrentDirectory(), 
+    "wwwroot", 
+    "uploads"
+);
+
+// Fallback to absolute path if running outside the root directory during testing
+if (!Directory.Exists(uploadsFullPath))
+{
+    uploadsFullPath = @"/Users/nandhiraja/Presidio-Internship/CapstoneProject/learning-management-system-capstone-project/LearningManagementSystem.Backend/wwwroot/uploads";
+}
+
+app.UseStaticFiles(new StaticFileOptions
+{
+    FileProvider = new PhysicalFileProvider(uploadsFullPath),
+    RequestPath = "/files" 
+});
+
 
 // Configure the HTTP request pipeline.
 app.UseMiddleware<ExceptionHandlingMiddleware>();
