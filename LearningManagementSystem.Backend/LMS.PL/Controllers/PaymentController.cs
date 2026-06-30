@@ -43,5 +43,29 @@ namespace LMS.PL.Controllers
             if (!success) return BadRequest();
             return Ok(new { message = "Processed" });
         }
+
+        [AllowAnonymous]
+        [HttpGet("paypal-callback")]
+        public async Task<IActionResult> PayPalCallback([FromQuery] string token, [FromQuery] string PayerID)
+        {
+            var payload = new System.Collections.Generic.Dictionary<string, object>
+            {
+                { "transactionId", token },
+                { "status", "Success" }
+            };
+            var success = await _paymentService.VerifyPaymentAsync(payload);
+            if (success)
+            {
+                return Redirect("http://localhost:4200/learning/dashboard?paymentStatus=success");
+            }
+            return Redirect("http://localhost:4200/cart?paymentStatus=failed");
+        }
+
+        [AllowAnonymous]
+        [HttpGet("paypal-cancel")]
+        public async Task<IActionResult> PayPalCancel()
+        {
+            return Redirect("http://localhost:4200/cart?paymentStatus=cancelled");
+        }
     }
 }
