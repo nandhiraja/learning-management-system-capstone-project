@@ -43,8 +43,8 @@ namespace LMS.BLL.Services.Orders.Gateways
                 throw new InvalidOperationException("Failed to obtain PayPal access token.");
             }
 
-            var returnUrl = _configuration["PayPal:ReturnUrl"] ?? "https://localhost:7165/api/payments/verify";
-            var cancelUrl = _configuration["PayPal:CancelUrl"] ?? "https://localhost:7165/api/payments/cancel";
+            var returnUrl = _configuration["PayPal:ReturnUrl"] ?? "http://localhost:5159/api/payments/paypal-callback";
+            var cancelUrl = _configuration["PayPal:CancelUrl"] ?? "http://localhost:5159/api/payments/paypal-cancel";
             var (paypalOrderId, approveUrl) = await CreatePayPalOrderAsync(client, amount, currency, accessToken, baseUrl, returnUrl, cancelUrl);
 
             if (string.IsNullOrEmpty(paypalOrderId) || string.IsNullOrEmpty(approveUrl))

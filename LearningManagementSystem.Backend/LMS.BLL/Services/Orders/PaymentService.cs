@@ -210,44 +210,45 @@ namespace LMS.BLL.Services
                         order.Status = OrderStatus.Completed;
                         await _orderRepository.Update(order);
 
-                        // Fetch existing enrollments to prevent DB unique key constraint conflicts
-                        var existingEnrollments = await _enrollmentRepository.GetEnrollmentsByUserIdAsync(order.UserId);
-                        var enrolledCourseIds = existingEnrollments.Select(e => e.CourseId).ToHashSet();
-
-                        // Create enrollment for each course
-                        foreach (var item in order.OrderItems)
-                        {
-                            if (enrolledCourseIds.Contains(item.CourseId))
-                            {
-                                _logger.LogInformation($"User {order.UserId} is already enrolled in Course {item.CourseId}. Skipping duplicate creation.");
-                                continue;
-                            }
-
-                            var enrollment = new Enrollment
-                            {
-                                CourseId = item.CourseId,
-                                UserId = order.UserId,
-                                OrderItemId = item.Id,
-                                Status = EnrollmentStatus.Active,
-                                EnrolledAt = DateTime.UtcNow
-                            };
-                            await _enrollmentRepository.Create(enrollment);
-
-                            var course = await _courseRepository.Get(item.CourseId);
-                            if (course != null)
-                            {
-                                string emailBody = $@"
-                                    <h2>Enrollment Successful</h2>
-                                    <p>You have successfully enrolled in the course: <strong>{course.Title}</strong>.</p>
-                                    <p>Happy learning!<br/>LMS Team</p>";
-                                await _notificationService.SendEmailAsync("nandhiraja16@gmail.com", "Enrollment Successful", emailBody);
-                            }
-                        }
-
-                        // Clear the user's cart
+                        // Fetch user details first to get their email address for notifications
                         var user = await _userRepository.GetUserWithRoleAsync(order.UserId);
                         if (user != null)
                         {
+                            // Fetch existing enrollments to prevent DB unique key constraint conflicts
+                            var existingEnrollments = await _enrollmentRepository.GetEnrollmentsByUserIdAsync(order.UserId);
+                            var enrolledCourseIds = existingEnrollments.Select(e => e.CourseId).ToHashSet();
+
+                            // Create enrollment for each course
+                            foreach (var item in order.OrderItems)
+                            {
+                                if (enrolledCourseIds.Contains(item.CourseId))
+                                {
+                                    _logger.LogInformation($"User {order.UserId} is already enrolled in Course {item.CourseId}. Skipping duplicate creation.");
+                                    continue;
+                                }
+
+                                var enrollment = new Enrollment
+                                {
+                                    CourseId = item.CourseId,
+                                    UserId = order.UserId,
+                                    OrderItemId = item.Id,
+                                    Status = EnrollmentStatus.Active,
+                                    EnrolledAt = DateTime.UtcNow
+                                };
+                                await _enrollmentRepository.Create(enrollment);
+
+                                var course = await _courseRepository.Get(item.CourseId);
+                                if (course != null)
+                                {
+                                    string emailBody = $@"
+                                        <h2>Enrollment Successful</h2>
+                                        <p>You have successfully enrolled in the course: <strong>{course.Title}</strong>.</p>
+                                        <p>Happy learning!<br/>LMS Team</p>";
+                                    await _notificationService.SendEmailAsync(user.Email, "Enrollment Successful", emailBody);
+                                }
+                            }
+
+                            // Clear the user's cart
                             await _cartService.ClearCartAsync(user.ExternalId);
                         }
                     }
