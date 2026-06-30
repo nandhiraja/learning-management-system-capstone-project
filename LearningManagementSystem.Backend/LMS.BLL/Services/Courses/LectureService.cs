@@ -73,6 +73,13 @@ namespace LMS.BLL.Services
             };
 
             var createdLecture = await _lectureRepository.Create(lecture);
+
+            if (course.Status == CourseStatus.Published)
+            {
+                course.Status = CourseStatus.Draft;
+                await _courseRepository.Update(course);
+            }
+
             var resp = _mapper.Map<LectureResponse>(createdLecture);
             resp.ContentType = createdLecture.ContentType.ToString();
             return resp;
@@ -133,6 +140,14 @@ namespace LMS.BLL.Services
             lecture.ContentType = contentType;
 
             await _lectureRepository.Update(lecture);
+
+            var course = lecture.CourseSection?.Course;
+            if (course != null && course.Status == CourseStatus.Published)
+            {
+                course.Status = CourseStatus.Draft;
+                await _courseRepository.Update(course);
+            }
+
             return true;
         }
 
@@ -161,6 +176,14 @@ namespace LMS.BLL.Services
             }
 
             await _lectureRepository.Delete(lecture);
+
+            var course = lecture.CourseSection?.Course;
+            if (course != null && course.Status == CourseStatus.Published)
+            {
+                course.Status = CourseStatus.Draft;
+                await _courseRepository.Update(course);
+            }
+
             return true;
         }
 
@@ -181,6 +204,14 @@ namespace LMS.BLL.Services
 
             lecture.ContentUrl = fileUrl;
             await _lectureRepository.Update(lecture);
+
+            var course = lecture.CourseSection?.Course;
+            if (course != null && course.Status == CourseStatus.Published)
+            {
+                course.Status = CourseStatus.Draft;
+                await _courseRepository.Update(course);
+            }
+
             return true;
         }
     }

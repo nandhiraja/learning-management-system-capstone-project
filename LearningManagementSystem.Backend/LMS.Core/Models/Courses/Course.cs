@@ -22,6 +22,9 @@ namespace LMS.Core.Models
         public DateTime CreatedAt { get; set; }
         public DateTime UpdatedAt { get; set; }
 
+        public int? OriginalCourseId { get; set; }
+        public Course? OriginalCourse { get; set; }
+
 
         // Navigation property
         public User Instructor { get; set; } = null!;

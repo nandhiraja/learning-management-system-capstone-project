@@ -60,6 +60,13 @@ namespace LMS.BLL.Services
             };
 
             var createdSection = await _sectionRepository.Create(section);
+
+            if (course.Status == CourseStatus.Published)
+            {
+                course.Status = CourseStatus.Draft;
+                await _courseRepository.Update(course);
+            }
+
             return _mapper.Map<CourseSectionResponse>(createdSection);
         }
 
@@ -101,6 +108,13 @@ namespace LMS.BLL.Services
             section.UpdatedAt = DateTime.UtcNow;
 
             await _sectionRepository.Update(section);
+
+            if (course.Status == CourseStatus.Published)
+            {
+                course.Status = CourseStatus.Draft;
+                await _courseRepository.Update(course);
+            }
+
             return true;
         }
 
@@ -132,6 +146,13 @@ namespace LMS.BLL.Services
             }
 
             await _sectionRepository.Delete(section);
+
+            if (course.Status == CourseStatus.Published)
+            {
+                course.Status = CourseStatus.Draft;
+                await _courseRepository.Update(course);
+            }
+
             return true;
         }
     }

@@ -10,6 +10,7 @@ using LMS.Core.Models;
 using LMS.Core.Exception;
 using LMS.DAL.Interfaces;
 using LMS.DAL.Data;
+using Microsoft.EntityFrameworkCore;
 
 namespace LMS.BLL.Services
 {
@@ -41,7 +42,15 @@ namespace LMS.BLL.Services
             _notificationService = notificationService;
         }
 
-        public async Task<(IEnumerable<CourseResponse> Items, int TotalCount)> GetCoursesAsync(int page, int pageSize, int? categoryId, string? search)
+        public async Task<(IEnumerable<CourseResponse> Items, int TotalCount)> GetCoursesAsync(
+            int page, 
+            int pageSize, 
+            int? categoryId, 
+            string? search, 
+            decimal? minPrice, 
+            decimal? maxPrice, 
+            string? language, 
+            string? sortBy)
         {
             var courses = await _courseRepository.GetCoursesWithDetailsAsync();
 
@@ -57,6 +66,49 @@ namespace LMS.BLL.Services
             {
                 query = query.Where(c => c.Title.Contains(search, StringComparison.OrdinalIgnoreCase) || 
                                          c.Description.Contains(search, StringComparison.OrdinalIgnoreCase));
+            }
+
+            if (minPrice.HasValue)
+            {
+                query = query.Where(c => c.Price >= minPrice.Value);
+            }
+
+            if (maxPrice.HasValue)
+            {
+                query = query.Where(c => c.Price <= maxPrice.Value);
+            }
+
+            if (!string.IsNullOrEmpty(language))
+            {
+                query = query.Where(c => c.Language != null && c.Language.Name.Equals(language, StringComparison.OrdinalIgnoreCase));
+            }
+
+            // Sorting
+            if (!string.IsNullOrEmpty(sortBy))
+            {
+                switch (sortBy.ToLower().Trim())
+                {
+                    case "price-asc":
+                        query = query.OrderBy(c => c.Price);
+                        break;
+                    case "price-desc":
+                        query = query.OrderByDescending(c => c.Price);
+                        break;
+                    case "rating":
+                        query = query.OrderByDescending(c => c.CourseReviews?.Any() == true ? c.CourseReviews.Average(r => r.Rating) : 0.0);
+                        break;
+                    case "students":
+                        query = query.OrderByDescending(c => c.Enrollments?.Count() ?? 0);
+                        break;
+                    case "newest":
+                    default:
+                        query = query.OrderByDescending(c => c.CreatedAt);
+                        break;
+                }
+            }
+            else
+            {
+                query = query.OrderByDescending(c => c.CreatedAt);
             }
 
             var totalCount = query.Count();
@@ -102,16 +154,10 @@ namespace LMS.BLL.Services
                                   course.Enrollments.Any(e => e.UserId == user.Id &&
                                       (e.Status == EnrollmentStatus.Active || e.Status == EnrollmentStatus.Completed));
 
-                // If course is Archived, enrolled students can still view it. Otherwise only Admin and Instructor can.
-                if (course.Status == CourseStatus.Archived)
+                // Admins, owning Instructors, and Enrolled students can access the course details.
+                if (!isAdmin && !isInstructor && !isEnrolled)
                 {
-                    if (!isAdmin && !isInstructor && !isEnrolled)
-                        return null;
-                }
-                else
-                {
-                    if (!isAdmin && !isInstructor)
-                        return null;
+                    return null;
                 }
             }
 
@@ -135,6 +181,16 @@ namespace LMS.BLL.Services
                                           (e.Status == EnrollmentStatus.Active || e.Status == EnrollmentStatus.Completed));
 
                     showLectures = isAdmin || isInstructor || isEnrolled;
+                }
+            }
+
+            if (course.OriginalCourseId.HasValue)
+            {
+                var originalCourse = await _courseRepository.GetCourseWithDetailsAsync(course.OriginalCourseId.Value);
+                if (originalCourse != null)
+                {
+                    resp.OriginalCourseExternalId = originalCourse.ExternalId;
+                    resp.OriginalCourseDetails = _mapper.Map<CourseResponse>(originalCourse);
                 }
             }
 
@@ -218,7 +274,7 @@ namespace LMS.BLL.Services
             }
         }
 
-        public async Task<bool> UpdateCourseAsync(Guid courseGuid, CourseUpdateRequest request, Guid userGuid)
+        public async Task<CourseUpdateResult> UpdateCourseAsync(Guid courseGuid, CourseUpdateRequest request, Guid userGuid)
         {
             using var dbTransaction = await _context.Database.BeginTransactionAsync();
             try
@@ -228,7 +284,7 @@ namespace LMS.BLL.Services
                     throw new NotFoundException(nameof(User), userGuid);
 
                 var course = await _courseRepository.GetByExternalIdAsync(courseGuid);
-                if (course == null) return false;
+                if (course == null) return new CourseUpdateResult { Success = false };
 
                 // Admins and other users cannot edit courses. Only the owning Instructor can.
                 if (course.InstructorId != user.Id)
@@ -252,19 +308,35 @@ namespace LMS.BLL.Services
                     language = await _languageRepository.Create(language);
                 }
 
-                course.Title = request.Title;
-                course.Description = request.Description;
-                course.CategoryId = request.CategoryId;
-                course.LanguageId = language.Id;
-                course.Price = request.Price;
-                course.UpdatedAt = DateTime.UtcNow;
+                Course targetCourse = course;
 
-                // Any updates force the status back to Draft, requiring Admin approval again
-                course.Status = CourseStatus.Draft;
+                // If editing a Published course, we duplicate it into a Draft first (unless a draft already exists)
+                if (course.Status == CourseStatus.Published)
+                {
+                    var existingDraft = await _courseRepository.GetDraftByOriginalCourseIdAsync(course.Id);
+                    if (existingDraft != null)
+                    {
+                        targetCourse = existingDraft;
+                    }
+                    else
+                    {
+                        targetCourse = await DuplicateCourseToDraftAsync(course);
+                    }
+                }
 
-                await _courseRepository.Update(course);
+                targetCourse.Title = request.Title;
+                targetCourse.Description = request.Description;
+                targetCourse.CategoryId = request.CategoryId;
+                targetCourse.LanguageId = language.Id;
+                targetCourse.Price = request.Price;
+                targetCourse.ThumbnailUrl = request.ThumbnailUrl;
+                targetCourse.UpdatedAt = DateTime.UtcNow;
+                targetCourse.Status = CourseStatus.Draft;
+
+                await _courseRepository.Update(targetCourse);
                 await dbTransaction.CommitAsync();
-                return true;
+
+                return new CourseUpdateResult { Success = true, UpdatedCourseGuid = targetCourse.ExternalId };
             }
             catch (Exception)
             {
@@ -340,20 +412,45 @@ namespace LMS.BLL.Services
 
         public async Task<bool> PublishCourseAsync(Guid courseGuid)
         {
-            var course = await _courseRepository.GetByExternalIdAsync(courseGuid);
-            if (course == null) return false;
+            using var dbTransaction = await _context.Database.BeginTransactionAsync();
+            try
+            {
+                var course = await _courseRepository.GetByExternalIdAsync(courseGuid);
+                if (course == null) return false;
 
-            course.Status = CourseStatus.Published;
-            course.UpdatedAt = DateTime.UtcNow;
-            await _courseRepository.Update(course);
+                var instructor = await _userRepository.GetUserWithRoleAsync(course.InstructorId);
+                string recipient = instructor?.Email ?? "nandhiraja16@gmail.com";
 
-            string emailBody = $@"
-                <h2>Course Approved</h2>
-                <p>We are pleased to inform you that your course '{course.Title}' has been approved and published on LMS.</p>
-                <p>Best regards,<br/>LMS Team</p>";
-            await _notificationService.SendEmailAsync("nandhiraja16@gmail.com", "Course Approved", emailBody);
+                if (course.OriginalCourseId.HasValue)
+                {
+                    var original = await _courseRepository.GetCourseWithDetailsAsync(course.OriginalCourseId.Value);
+                    if (original != null)
+                    {
+                        await MergeDraftToOriginalCourseAsync(course, original);
+                    }
+                }
+                else
+                {
+                    course.Status = CourseStatus.Published;
+                    course.UpdatedAt = DateTime.UtcNow;
+                    await _courseRepository.Update(course);
+                }
 
-            return true;
+                await dbTransaction.CommitAsync();
+
+                string emailBody = $@"
+                    <h2>Course Approved</h2>
+                    <p>We are pleased to inform you that your course '{course.Title}' has been approved and published on LMS.</p>
+                    <p>Best regards,<br/>LMS Team</p>";
+                await _notificationService.SendEmailAsync(recipient, "Course Approved", emailBody);
+
+                return true;
+            }
+            catch (Exception)
+            {
+                await dbTransaction.RollbackAsync();
+                throw;
+            }
         }
 
         public async Task<bool> RejectCourseAsync(Guid courseGuid, string reason)
@@ -365,13 +462,16 @@ namespace LMS.BLL.Services
             course.UpdatedAt = DateTime.UtcNow;
             await _courseRepository.Update(course);
 
+            var instructor = await _userRepository.GetUserWithRoleAsync(course.InstructorId);
+            string recipient = instructor?.Email ?? "nandhiraja16@gmail.com";
+
             string emailBody = $@"
                 <h2>Course Review Rejected</h2>
                 <p>We regret to inform you that your course '{course.Title}' was rejected during our review process.</p>
                 <p><strong>Reason:</strong> {reason}</p>
                 <p>Please address this feedback and resubmit your course.</p>
                 <p>Best regards,<br/>LMS Team</p>";
-            await _notificationService.SendEmailAsync("nandhiraja16@gmail.com", "Course Review Rejected", emailBody);
+            await _notificationService.SendEmailAsync(recipient, "Course Review Rejected", emailBody);
 
             return true;
         }
@@ -395,5 +495,419 @@ namespace LMS.BLL.Services
             await _courseRepository.Update(course);
             return true;
         }
+
+        #region Course Draft Helper Methods
+
+        private async Task<Course> DuplicateCourseToDraftAsync(Course course)
+        {
+            var clonedCourse = new Course
+            {
+                Title = course.Title,
+                Description = course.Description,
+                CategoryId = course.CategoryId,
+                LanguageId = course.LanguageId,
+                Price = course.Price,
+                ThumbnailUrl = course.ThumbnailUrl,
+                DiscountPercentage = course.DiscountPercentage,
+                InstructorId = course.InstructorId,
+                Status = CourseStatus.Draft,
+                OriginalCourseId = course.Id,
+                ExternalId = Guid.NewGuid(),
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow
+            };
+            _context.Courses.Add(clonedCourse);
+            await _context.SaveChangesAsync();
+
+            var courseLevelQuizzes = _context.Quizzes
+                .Where(q => q.CourseId == course.Id && q.LectureId == null)
+                .ToList();
+
+            foreach (var quiz in courseLevelQuizzes)
+            {
+                await DuplicateQuizAsync(quiz, clonedCourse.Id, null);
+            }
+
+            foreach (var section in course.Sections)
+            {
+                var clonedSection = new CourseSection
+                {
+                    Title = section.Title,
+                    Description = section.Description ?? string.Empty,
+                    Order = section.Order,
+                    CourseId = clonedCourse.Id,
+                    CreatedAt = DateTime.UtcNow,
+                    UpdatedAt = DateTime.UtcNow
+                };
+                _context.CourseSections.Add(clonedSection);
+                await _context.SaveChangesAsync();
+
+                foreach (var lecture in section.Lectures)
+                {
+                    var clonedLecture = new Lecture
+                    {
+                        Title = lecture.Title,
+                        ContentUrl = lecture.ContentUrl,
+                        ContentType = lecture.ContentType,
+                        DurationInMinutes = lecture.DurationInMinutes,
+                        Status = lecture.Status,
+                        CourseSectionId = clonedSection.Id
+                    };
+                    _context.Lectures.Add(clonedLecture);
+                    await _context.SaveChangesAsync();
+
+                    foreach (var quiz in lecture.Quizzes)
+                    {
+                        await DuplicateQuizAsync(quiz, clonedCourse.Id, clonedLecture.Id);
+                    }
+                }
+            }
+
+            return clonedCourse;
+        }
+
+        private async Task DuplicateQuizAsync(Quiz quiz, int clonedCourseId, int? clonedLectureId)
+        {
+            var clonedQuiz = new Quiz
+            {
+                Title = quiz.Title,
+                Description = quiz.Description ?? string.Empty,
+                LectureId = clonedLectureId,
+                CourseId = clonedCourseId,
+                TotalMarks = quiz.TotalMarks,
+                PassScore = quiz.PassScore,
+                MaxAttempts = quiz.MaxAttempts,
+                CurrentAttempt = quiz.CurrentAttempt,
+                Status = quiz.Status,
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow
+            };
+            _context.Quizzes.Add(clonedQuiz);
+            await _context.SaveChangesAsync();
+
+            var questions = _context.QuizQuestions
+                .Include(q => q.Options)
+                .Where(q => q.QuizId == quiz.Id)
+                .ToList();
+
+            foreach (var question in questions)
+            {
+                var clonedQuestion = new QuizQuestion
+                {
+                    QuizId = clonedQuiz.Id,
+                    QuestionText = question.QuestionText
+                };
+                _context.QuizQuestions.Add(clonedQuestion);
+                await _context.SaveChangesAsync();
+
+                foreach (var option in question.Options)
+                {
+                    var clonedOption = new QuizOption
+                    {
+                        QuizQuestionId = clonedQuestion.Id,
+                        OptionText = option.OptionText,
+                        IsCorrect = option.IsCorrect
+                    };
+                    _context.QuizOptions.Add(clonedOption);
+                }
+                await _context.SaveChangesAsync();
+            }
+        }
+
+        private async Task MergeDraftToOriginalCourseAsync(Course course, Course original)
+        {
+            original.Title = course.Title;
+            original.Description = course.Description;
+            original.CategoryId = course.CategoryId;
+            original.LanguageId = course.LanguageId;
+            original.Price = course.Price;
+            original.ThumbnailUrl = course.ThumbnailUrl;
+            original.DiscountPercentage = course.DiscountPercentage;
+            original.UpdatedAt = DateTime.UtcNow;
+            original.Status = CourseStatus.Published;
+
+            var originalSections = original.Sections.ToList();
+            var draftSections = course.Sections.ToList();
+
+            foreach (var dSec in draftSections)
+            {
+                var oSec = originalSections.FirstOrDefault(s => s.Order == dSec.Order);
+                if (oSec != null)
+                {
+                    oSec.Title = dSec.Title;
+                    oSec.Description = dSec.Description;
+                    oSec.UpdatedAt = DateTime.UtcNow;
+
+                    await MergeLecturesAsync(dSec.Lectures.ToList(), oSec.Lectures.ToList(), oSec.Id, original.Id);
+                }
+                else
+                {
+                    await CreateNewSectionFromDraftAsync(dSec, original.Id);
+                }
+            }
+
+            if (originalSections.Count > draftSections.Count)
+            {
+                var draftOrders = draftSections.Select(s => s.Order).ToHashSet();
+                foreach (var oldSec in originalSections)
+                {
+                    if (!draftOrders.Contains(oldSec.Order))
+                    {
+                        var oldLectures = _context.Lectures.Where(l => l.CourseSectionId == oldSec.Id).ToList();
+                        foreach (var ol in oldLectures)
+                        {
+                            var progresses = _context.LectureProgresses.Where(p => p.LectureId == ol.Id);
+                            _context.LectureProgresses.RemoveRange(progresses);
+                            _context.Lectures.Remove(ol);
+                        }
+                        _context.CourseSections.Remove(oldSec);
+                    }
+                }
+            }
+
+            await SyncQuizzesAsync(
+                _context.Quizzes.Where(q => q.CourseId == course.Id && q.LectureId == null).ToList(),
+                _context.Quizzes.Where(q => q.CourseId == original.Id && q.LectureId == null).ToList(),
+                original.Id,
+                null
+            );
+
+            var draftSectionsToDelete = _context.CourseSections.Where(s => s.CourseId == course.Id).ToList();
+            foreach (var ds in draftSectionsToDelete)
+            {
+                var draftLecs = _context.Lectures.Where(l => l.CourseSectionId == ds.Id).ToList();
+                foreach (var dl in draftLecs)
+                {
+                    var draftQuizzes = _context.Quizzes.Where(q => q.LectureId == dl.Id).ToList();
+                    foreach (var dq in draftQuizzes)
+                    {
+                        var draftQuestions = _context.QuizQuestions.Where(q => q.QuizId == dq.Id).ToList();
+                        foreach (var dqu in draftQuestions)
+                        {
+                            var opts = _context.QuizOptions.Where(o => o.QuizQuestionId == dqu.Id);
+                            _context.QuizOptions.RemoveRange(opts);
+                        }
+                        _context.QuizQuestions.RemoveRange(draftQuestions);
+                        _context.Quizzes.Remove(dq);
+                    }
+                    _context.Lectures.Remove(dl);
+                }
+                _context.CourseSections.Remove(ds);
+            }
+            _context.Courses.Remove(course);
+
+            await _context.SaveChangesAsync();
+            await _courseRepository.Update(original);
+        }
+
+        private async Task MergeLecturesAsync(List<Lecture> draftLectures, List<Lecture> originalLectures, int oSecId, int originalCourseId)
+        {
+            for (int i = 0; i < draftLectures.Count; i++)
+            {
+                var dLec = draftLectures[i];
+                if (i < originalLectures.Count)
+                {
+                    var oLec = originalLectures[i];
+                    oLec.Title = dLec.Title;
+                    oLec.ContentUrl = dLec.ContentUrl;
+                    oLec.ContentType = dLec.ContentType;
+                    oLec.DurationInMinutes = dLec.DurationInMinutes;
+                    oLec.Status = dLec.Status;
+
+                    await SyncQuizzesAsync(dLec.Quizzes.ToList(), oLec.Quizzes.ToList(), originalCourseId, oLec.Id);
+                }
+                else
+                {
+                    await CreateNewLectureFromDraftAsync(dLec, oSecId, originalCourseId);
+                }
+            }
+
+            if (originalLectures.Count > draftLectures.Count)
+            {
+                for (int i = draftLectures.Count; i < originalLectures.Count; i++)
+                {
+                    var oldLec = originalLectures[i];
+                    var progresses = _context.LectureProgresses.Where(p => p.LectureId == oldLec.Id);
+                    _context.LectureProgresses.RemoveRange(progresses);
+                    _context.Lectures.Remove(oldLec);
+                }
+            }
+        }
+
+        private async Task SyncQuizzesAsync(List<Quiz> draftQuizzes, List<Quiz> originalQuizzes, int originalCourseId, int? oLecId)
+        {
+            for (int j = 0; j < draftQuizzes.Count; j++)
+            {
+                var dQuiz = draftQuizzes[j];
+                if (j < originalQuizzes.Count)
+                {
+                    var oQuiz = originalQuizzes[j];
+                    oQuiz.Title = dQuiz.Title;
+                    oQuiz.Description = dQuiz.Description;
+                    oQuiz.TotalMarks = dQuiz.TotalMarks;
+                    oQuiz.PassScore = dQuiz.PassScore;
+                    oQuiz.MaxAttempts = dQuiz.MaxAttempts;
+                    oQuiz.CurrentAttempt = dQuiz.CurrentAttempt;
+                    oQuiz.Status = dQuiz.Status;
+                    oQuiz.UpdatedAt = DateTime.UtcNow;
+
+                    var oldQuestions = _context.QuizQuestions.Where(q => q.QuizId == oQuiz.Id).ToList();
+                    _context.QuizQuestions.RemoveRange(oldQuestions);
+
+                    var draftQuestions = _context.QuizQuestions.Include(q => q.Options).Where(q => q.QuizId == dQuiz.Id).ToList();
+                    foreach (var dq in draftQuestions)
+                    {
+                        var newQ = new QuizQuestion
+                        {
+                            QuizId = oQuiz.Id,
+                            QuestionText = dq.QuestionText
+                        };
+                        _context.QuizQuestions.Add(newQ);
+                        await _context.SaveChangesAsync();
+
+                        foreach (var dOpt in dq.Options)
+                        {
+                            var newOpt = new QuizOption
+                            {
+                                QuizQuestionId = newQ.Id,
+                                OptionText = dOpt.OptionText,
+                                IsCorrect = dOpt.IsCorrect
+                            };
+                            _context.QuizOptions.Add(newOpt);
+                        }
+                    }
+                }
+                else
+                {
+                    var newQuiz = new Quiz
+                    {
+                        Title = dQuiz.Title,
+                        Description = dQuiz.Description,
+                        LectureId = oLecId,
+                        CourseId = originalCourseId,
+                        TotalMarks = dQuiz.TotalMarks,
+                        PassScore = dQuiz.PassScore,
+                        MaxAttempts = dQuiz.MaxAttempts,
+                        CurrentAttempt = dQuiz.CurrentAttempt,
+                        Status = dQuiz.Status,
+                        CreatedAt = DateTime.UtcNow,
+                        UpdatedAt = DateTime.UtcNow
+                    };
+                    _context.Quizzes.Add(newQuiz);
+                    await _context.SaveChangesAsync();
+
+                    var draftQuestions = _context.QuizQuestions.Include(q => q.Options).Where(q => q.QuizId == dQuiz.Id).ToList();
+                    foreach (var dq in draftQuestions)
+                    {
+                        var newQ = new QuizQuestion
+                        {
+                            QuizId = newQuiz.Id,
+                            QuestionText = dq.QuestionText
+                        };
+                        _context.QuizQuestions.Add(newQ);
+                        await _context.SaveChangesAsync();
+
+                        foreach (var dOpt in dq.Options)
+                        {
+                            var newOpt = new QuizOption
+                            {
+                                QuizQuestionId = newQ.Id,
+                                OptionText = dOpt.OptionText,
+                                IsCorrect = dOpt.IsCorrect
+                            };
+                            _context.QuizOptions.Add(newOpt);
+                        }
+                    }
+                }
+            }
+
+            if (originalQuizzes.Count > draftQuizzes.Count)
+            {
+                for (int j = draftQuizzes.Count; j < originalQuizzes.Count; j++)
+                {
+                    _context.Quizzes.Remove(originalQuizzes[j]);
+                }
+            }
+        }
+
+        private async Task CreateNewSectionFromDraftAsync(CourseSection dSec, int originalCourseId)
+        {
+            var newSec = new CourseSection
+            {
+                Title = dSec.Title,
+                Description = dSec.Description ?? string.Empty,
+                Order = dSec.Order,
+                CourseId = originalCourseId,
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow
+            };
+            _context.CourseSections.Add(newSec);
+            await _context.SaveChangesAsync();
+
+            foreach (var dLec in dSec.Lectures)
+            {
+                await CreateNewLectureFromDraftAsync(dLec, newSec.Id, originalCourseId);
+            }
+        }
+
+        private async Task CreateNewLectureFromDraftAsync(Lecture dLec, int originalSectionId, int originalCourseId)
+        {
+            var newLec = new Lecture
+            {
+                Title = dLec.Title,
+                ContentUrl = dLec.ContentUrl,
+                ContentType = dLec.ContentType,
+                DurationInMinutes = dLec.DurationInMinutes,
+                Status = dLec.Status,
+                CourseSectionId = originalSectionId
+            };
+            _context.Lectures.Add(newLec);
+            await _context.SaveChangesAsync();
+
+            foreach (var dQuiz in dLec.Quizzes)
+            {
+                var newQuiz = new Quiz
+                {
+                    Title = dQuiz.Title,
+                    Description = dQuiz.Description,
+                    LectureId = newLec.Id,
+                    CourseId = originalCourseId,
+                    TotalMarks = dQuiz.TotalMarks,
+                    PassScore = dQuiz.PassScore,
+                    MaxAttempts = dQuiz.MaxAttempts,
+                    CurrentAttempt = dQuiz.CurrentAttempt,
+                    Status = dQuiz.Status,
+                    CreatedAt = DateTime.UtcNow,
+                    UpdatedAt = DateTime.UtcNow
+                };
+                _context.Quizzes.Add(newQuiz);
+                await _context.SaveChangesAsync();
+
+                var draftQuestions = _context.QuizQuestions.Include(q => q.Options).Where(q => q.QuizId == dQuiz.Id).ToList();
+                foreach (var dq in draftQuestions)
+                {
+                    var newQ = new QuizQuestion
+                    {
+                        QuizId = newQuiz.Id,
+                        QuestionText = dq.QuestionText
+                    };
+                    _context.QuizQuestions.Add(newQ);
+                    await _context.SaveChangesAsync();
+
+                    foreach (var dOpt in dq.Options)
+                    {
+                        var newOpt = new QuizOption
+                        {
+                            QuizQuestionId = newQ.Id,
+                            OptionText = dOpt.OptionText,
+                            IsCorrect = dOpt.IsCorrect
+                        };
+                        _context.QuizOptions.Add(newOpt);
+                    }
+                }
+            }
+        }
+
+        #endregion
     }
 }

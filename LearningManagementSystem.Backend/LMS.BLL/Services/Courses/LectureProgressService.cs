@@ -123,18 +123,20 @@ namespace LMS.BLL.Services
                 {
                     CompletedLectures = 0,
                     TotalLectures = 0,
-                    Percentage = 0
+                    Percentage = 0,
+                    CompletedLectureIds = new List<int>()
                 };
             }
 
             var progresses = await _lectureProgressRepository.GetProgressByEnrollmentIdAsync(enrollment.Id);
-            int completedLectures = progresses.Count(p => p.Status == LectureStatus.Completed);
+            var completedList = progresses.Where(p => p.Status == LectureStatus.Completed).Select(p => p.LectureId).ToList();
 
             return new ProgressResponse
             {
-                CompletedLectures = completedLectures,
+                CompletedLectures = completedList.Count,
                 TotalLectures = totalLectures,
-                Percentage = Math.Round(((double)completedLectures / totalLectures) * 100.0, 2)
+                Percentage = Math.Round(((double)completedList.Count / totalLectures) * 100.0, 2),
+                CompletedLectureIds = completedList
             };
         }
 
