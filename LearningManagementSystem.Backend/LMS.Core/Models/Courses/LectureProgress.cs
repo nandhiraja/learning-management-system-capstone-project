@@ -8,6 +8,8 @@ namespace LMS.Core.Models
         public int LectureId { get; set; }
         public int EnrollmentId { get; set; }
         public LectureStatus Status { get; set; }
+        public int WatchedSeconds { get; set; }
+        public DateTime? LastAccessedAt { get; set; }
 
         // Navigation properties
         public Lecture Lecture { get; set; } = null!;

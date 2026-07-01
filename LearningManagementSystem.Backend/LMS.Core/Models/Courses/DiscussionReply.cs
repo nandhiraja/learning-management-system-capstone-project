@@ -16,5 +16,6 @@ namespace LMS.Core.Models
         // Navigation properties
         public Discussion Discussion { get; set; } = null!;
         public User User { get; set; } = null!;
+        public ICollection<DiscussionReplyLike> Likes { get; set; } = new List<DiscussionReplyLike>();
     }
 }

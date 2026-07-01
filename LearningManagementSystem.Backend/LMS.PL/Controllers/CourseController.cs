@@ -39,9 +39,13 @@ namespace LMS.PL.Controllers
             [FromQuery] int page = 1,
             [FromQuery] int pageSize = 10,
             [FromQuery] int? categoryId = null,
-            [FromQuery] string? search = null)
+            [FromQuery] string? search = null,
+            [FromQuery] decimal? minPrice = null,
+            [FromQuery] decimal? maxPrice = null,
+            [FromQuery] string? language = null,
+            [FromQuery] string? sortBy = null)
         {
-            var result = await _courseService.GetCoursesAsync(page, pageSize, categoryId, search);
+            var result = await _courseService.GetCoursesAsync(page, pageSize, categoryId, search, minPrice, maxPrice, language, sortBy);
             return Ok(new { items = result.Items, totalCount = result.TotalCount });
         }
 
@@ -65,9 +69,9 @@ namespace LMS.PL.Controllers
         [HttpPut("{courseId}")]
         public async Task<IActionResult> UpdateCourse(Guid courseId, [FromBody] CourseUpdateRequest request)
         {
-            var success = await _courseService.UpdateCourseAsync(courseId, request, CurrentUserGuid);
-            if (!success) return NotFound();
-            return Ok(new { message = "Course updated" });
+            var result = await _courseService.UpdateCourseAsync(courseId, request, CurrentUserGuid);
+            if (result == null || !result.Success) return NotFound();
+            return Ok(new { message = "Course updated", updatedCourseGuid = result.UpdatedCourseGuid });
         }
 
         [Authorize(Roles = "Instructor,Admin")]
