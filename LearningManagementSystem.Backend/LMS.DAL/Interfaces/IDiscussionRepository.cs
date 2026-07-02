@@ -15,5 +15,6 @@ namespace LMS.BLL.Interfaces
         Task<DiscussionReply> CreateReplyAsync(DiscussionReply reply);
         Task UpdateReplyAsync(DiscussionReply reply);
         Task<IEnumerable<Discussion>> GetDiscussionsByCourseIdsAsync(IEnumerable<int> courseIds);
+        Task<int> ToggleReplyLikeAsync(int replyId, int userId);
     }
 }

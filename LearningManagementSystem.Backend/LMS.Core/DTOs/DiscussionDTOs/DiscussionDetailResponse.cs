@@ -13,6 +13,7 @@ namespace LMS.Core.DTOs
         public UserProfileResponse User { get; set; } = null!;
         public int LectureId { get; set; }
         public string? LectureTitle { get; set; }
+        public bool IsInstructorThread { get; set; }
         public IEnumerable<DiscussionReplyResponse> Replies { get; set; } = new List<DiscussionReplyResponse>();
     }
 }

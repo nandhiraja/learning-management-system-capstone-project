@@ -53,7 +53,9 @@ namespace LMS.BLL.Mappers
                 .ForMember(dest => dest.PaymentMethod, opt => opt.MapFrom(src => Enum.Parse<PaymentMethod>(src.PaymentMethod, true)));
 
             // Enrollment mappings 
-            CreateMap<Enrollment, EnrollmentResponse>();
+            CreateMap<Enrollment, EnrollmentResponse>()
+                .ForMember(dest => dest.CourseThumbnailUrl, opt => opt.MapFrom(src => src.Course != null ? src.Course.ThumbnailUrl : null))
+                .ForMember(dest => dest.InstructorName, opt => opt.MapFrom(src => src.Course != null && src.Course.Instructor != null ? ($"{src.Course.Instructor.FirstName} {src.Course.Instructor.LastName}").Trim() : string.Empty));
 
             // Cart mappings
             CreateMap<Course, CartItemResponse>();

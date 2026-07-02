@@ -13,6 +13,7 @@ namespace LMS.BLL.Interfaces
         Task<int> GetCountAsync();
         Task<int> GetPendingCoursesCountAsync();
         Task<IEnumerable<Course>> GetPendingCoursesAsync();
+        Task<Course?> GetDraftByOriginalCourseIdAsync(int originalCourseId);
     }
 }
 

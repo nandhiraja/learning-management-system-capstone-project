@@ -12,5 +12,6 @@ namespace LMS.Core.DTOs
         public int LikesCount { get; set; }
         public bool IsInstructorReply { get; set; }
         public bool IsAuthorReply { get; set; }
+        public bool IsLikedByCurrentUser { get; set; }
     }
 }

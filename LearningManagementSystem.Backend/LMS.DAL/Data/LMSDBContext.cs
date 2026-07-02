@@ -29,6 +29,7 @@ namespace LMS.DAL.Data
         public DbSet<Language> Languages { get; set; }
         public DbSet<Discussion> Discussions { get; set; }
         public DbSet<DiscussionReply> DiscussionReplies { get; set; }
+        public DbSet<DiscussionReplyLike> DiscussionReplyLikes { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {

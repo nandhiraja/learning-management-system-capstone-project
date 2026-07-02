@@ -19,6 +19,7 @@ namespace LMS.DAL.Repositories
             return await _context.Enrollments
                 .Where(e => e.UserId == userId)
                 .Include(e => e.Course)
+                    .ThenInclude(c => c.Instructor)
                 .ToListAsync();
         }
 

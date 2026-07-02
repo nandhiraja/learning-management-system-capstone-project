@@ -42,6 +42,10 @@ namespace LMS.BLL.Services
             int pendingCoursesCount = await _courseRepository.GetPendingCoursesCountAsync();
             int blockedUsersCount = await _userRepository.GetBlockedUsersCountAsync();
 
+            var usersList = await _userRepository.GetAllAsync();
+            int instructorsCount = usersList.Count(u => u.Role?.Name?.Equals("Instructor", StringComparison.OrdinalIgnoreCase) ?? false);
+            int studentsCount = usersList.Count(u => u.Role?.Name?.Equals("Student", StringComparison.OrdinalIgnoreCase) ?? false);
+
             return new AdminDashboardResponse
             {
                 Users = totalUsers,
@@ -49,7 +53,9 @@ namespace LMS.BLL.Services
                 Orders = totalOrders,
                 TotalRevenue = totalRevenue,
                 PendingCoursesCount = pendingCoursesCount,
-                BlockedUsersCount = blockedUsersCount
+                BlockedUsersCount = blockedUsersCount,
+                InstructorsCount = instructorsCount,
+                StudentsCount = studentsCount
             };
         }
 
@@ -74,7 +80,23 @@ namespace LMS.BLL.Services
         public async Task<IEnumerable<CourseResponse>> GetPendingCoursesAsync()
         {
             var courses = await _courseRepository.GetPendingCoursesAsync();
-            return _mapper.Map<IEnumerable<CourseResponse>>(courses);
+            var responses = _mapper.Map<IEnumerable<CourseResponse>>(courses).ToList();
+
+            foreach (var response in responses)
+            {
+                var course = courses.FirstOrDefault(c => c.ExternalId == response.ExternalId);
+                if (course != null && course.OriginalCourseId.HasValue)
+                {
+                    var original = await _courseRepository.GetCourseWithDetailsAsync(course.OriginalCourseId.Value);
+                    if (original != null)
+                    {
+                        response.OriginalCourseExternalId = original.ExternalId;
+                        response.OriginalCourseDetails = _mapper.Map<CourseResponse>(original);
+                    }
+                }
+            }
+
+            return responses;
         }
 
         public async Task<IEnumerable<CourseResponse>> GetAdminCoursesAsync()

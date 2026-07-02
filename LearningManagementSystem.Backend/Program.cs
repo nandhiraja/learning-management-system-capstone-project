@@ -133,6 +133,7 @@ builder.Services.AddScoped<IWishlistService, WishlistService>();
 builder.Services.AddScoped<ICourseReviewService, CourseReviewService>();
 builder.Services.AddScoped<IInstructorService, InstructorService>();
 builder.Services.AddScoped<IAdminService, AdminService>();
+builder.Services.AddScoped<IStorageService, LocalStorageService>();
 builder.Services.AddScoped<IDiscussionService, DiscussionService>();
 
 #endregion

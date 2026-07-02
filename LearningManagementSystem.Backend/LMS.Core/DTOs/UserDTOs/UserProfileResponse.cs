@@ -12,5 +12,7 @@ namespace LMS.Core.DTOs
         public string PhoneNo { get; set; } = null!;
         public string? ProfilePictureUrl { get; set; }
         public string Role { get; set; } = null!;
+        public bool IsActive { get; set; }
+        public bool InstructorRequestPending { get; set; }
     }
 }

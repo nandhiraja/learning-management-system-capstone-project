@@ -23,5 +23,9 @@ namespace LMS.Core.DTOs
         [Required]
         [StringLength(50)]
         public string Language { get; set; } = null!;
+
+        [Url]
+        [StringLength(1000)]
+        public string? ThumbnailUrl { get; set; }
     }
 }

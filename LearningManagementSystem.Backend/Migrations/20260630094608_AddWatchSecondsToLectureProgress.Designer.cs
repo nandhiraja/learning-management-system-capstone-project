@@ -3,6 +3,7 @@ using System;
 using LMS.DAL.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace LearningManagementSystem.Backend.Migrations
 {
     [DbContext(typeof(LMSDBContext))]
-    partial class LMSDBContextModelSnapshot : ModelSnapshot
+    [Migration("20260630094608_AddWatchSecondsToLectureProgress")]
+    partial class AddWatchSecondsToLectureProgress
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -318,32 +321,6 @@ namespace LearningManagementSystem.Backend.Migrations
                     b.HasIndex("UserId");
 
                     b.ToTable("DiscussionReplies");
-                });
-
-            modelBuilder.Entity("LMS.Core.Models.DiscussionReplyLike", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp");
-
-                    b.Property<int>("ReplyId")
-                        .HasColumnType("integer");
-
-                    b.Property<int>("UserId")
-                        .HasColumnType("integer");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("ReplyId");
-
-                    b.HasIndex("UserId");
-
-                    b.ToTable("DiscussionReplyLikes");
                 });
 
             modelBuilder.Entity("LMS.Core.Models.Enrollment", b =>
@@ -948,25 +925,6 @@ namespace LearningManagementSystem.Backend.Migrations
                     b.Navigation("User");
                 });
 
-            modelBuilder.Entity("LMS.Core.Models.DiscussionReplyLike", b =>
-                {
-                    b.HasOne("LMS.Core.Models.DiscussionReply", "Reply")
-                        .WithMany("Likes")
-                        .HasForeignKey("ReplyId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("LMS.Core.Models.User", "User")
-                        .WithMany()
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Reply");
-
-                    b.Navigation("User");
-                });
-
             modelBuilder.Entity("LMS.Core.Models.Enrollment", b =>
                 {
                     b.HasOne("LMS.Core.Models.Course", "Course")
@@ -1151,11 +1109,6 @@ namespace LearningManagementSystem.Backend.Migrations
             modelBuilder.Entity("LMS.Core.Models.Discussion", b =>
                 {
                     b.Navigation("Replies");
-                });
-
-            modelBuilder.Entity("LMS.Core.Models.DiscussionReply", b =>
-                {
-                    b.Navigation("Likes");
                 });
 
             modelBuilder.Entity("LMS.Core.Models.Enrollment", b =>

@@ -65,6 +65,8 @@ namespace LMS.BLL.Services
             if (progress != null)
             {
                 progress.Status = newStatus;
+                progress.WatchedSeconds = request.WatchedSeconds;
+                progress.LastAccessedAt = DateTime.UtcNow;
                 await _lectureProgressRepository.Update(progress);
             }
             else
@@ -73,7 +75,9 @@ namespace LMS.BLL.Services
                 {
                     LectureId = request.LectureId,
                     EnrollmentId = enrollment.Id,
-                    Status = newStatus
+                    Status = newStatus,
+                    WatchedSeconds = request.WatchedSeconds,
+                    LastAccessedAt = DateTime.UtcNow
                 };
                 await _lectureProgressRepository.Create(progress);
             }

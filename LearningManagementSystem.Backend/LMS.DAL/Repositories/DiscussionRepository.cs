@@ -43,6 +43,8 @@ namespace LMS.DAL.Repositories
                 .Include(d => d.Replies)
                     .ThenInclude(r => r.User)
                         .ThenInclude(u => u.Role)
+                .Include(d => d.Replies)
+                    .ThenInclude(r => r.Likes)
                 .FirstOrDefaultAsync(d => d.ExternalId == externalId);
         }
 
@@ -77,6 +79,30 @@ namespace LMS.DAL.Repositories
                 .Include(d => d.Replies)
                 .OrderByDescending(d => d.CreatedAt)
                 .ToListAsync();
+        }
+
+        public async Task<int> ToggleReplyLikeAsync(int replyId, int userId)
+        {
+            var existingLike = await _context.DiscussionReplyLikes
+                .FirstOrDefaultAsync(l => l.ReplyId == replyId && l.UserId == userId);
+
+            var reply = await _context.DiscussionReplies.FindAsync(replyId);
+            if (reply == null) return 0;
+
+            if (existingLike != null)
+            {
+                _context.DiscussionReplyLikes.Remove(existingLike);
+                if (reply.LikesCount > 0) reply.LikesCount--;
+            }
+            else
+            {
+                var newLike = new DiscussionReplyLike { ReplyId = replyId, UserId = userId };
+                await _context.DiscussionReplyLikes.AddAsync(newLike);
+                reply.LikesCount++;
+            }
+
+            await _context.SaveChangesAsync();
+            return reply.LikesCount;
         }
     }
 }

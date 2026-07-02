@@ -111,7 +111,13 @@ namespace LMS.BLL.Services
                 discussions = discussions.Where(d => d.LectureId == lectureId.Value).ToList();
             }
 
-            return _mapper.Map<IEnumerable<DiscussionResponse>>(discussions);
+            var responseList = _mapper.Map<List<DiscussionResponse>>(discussions);
+            foreach (var d in responseList)
+            {
+                var original = discussions.First(x => x.ExternalId == d.ExternalId);
+                d.IsInstructorThread = (original.UserId == course.InstructorId);
+            }
+            return responseList;
         }
 
         public async Task<DiscussionDetailResponse?> GetDiscussionDetailsAsync(Guid discussionGuid, Guid userGuid)
@@ -130,6 +136,7 @@ namespace LMS.BLL.Services
             await ValidateUserAccessAsync(course, user);
 
             var resp = _mapper.Map<DiscussionDetailResponse>(discussion);
+            resp.IsInstructorThread = (discussion.UserId == course.InstructorId);
             
             // Map and sort the replies (pinned replies first, then chronological) and set programmatic helper flags:
             if (discussion.Replies != null)
@@ -149,6 +156,7 @@ namespace LMS.BLL.Services
                     respReply.IsAuthorReply = (reply.UserId == discussion.UserId);
                     respReply.IsInstructorReply = (reply.User?.Role?.Name?.Equals("Instructor", StringComparison.OrdinalIgnoreCase) ?? false) 
                                                  || (reply.UserId == course.InstructorId);
+                    respReply.IsLikedByCurrentUser = reply.Likes.Any(l => l.UserId == user.Id);
                 }
 
                 resp.Replies = respRepliesList;
@@ -249,9 +257,8 @@ namespace LMS.BLL.Services
 
             await ValidateUserAccessAsync(course, user);
 
-            reply.LikesCount += 1;
-            await _discussionRepository.UpdateReplyAsync(reply);
-            return reply.LikesCount;
+            int newCount = await _discussionRepository.ToggleReplyLikeAsync(reply.Id, user.Id);
+            return newCount;
         }
     }
 }

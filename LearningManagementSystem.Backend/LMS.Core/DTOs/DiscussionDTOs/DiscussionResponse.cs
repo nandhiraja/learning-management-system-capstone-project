@@ -13,5 +13,6 @@ namespace LMS.Core.DTOs
         public int RepliesCount { get; set; }
         public int LectureId { get; set; }
         public string? LectureTitle { get; set; }
+        public bool IsInstructorThread { get; set; }
     }
 }

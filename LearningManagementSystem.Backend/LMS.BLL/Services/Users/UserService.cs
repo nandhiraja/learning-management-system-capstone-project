@@ -49,6 +49,15 @@ namespace LMS.BLL.Services
  
             user.IsActive = false;
             await _userRepository.Update(user);
+
+            string fullName = ($"{user.FirstName} {user.LastName}").Trim();
+            string emailBody = $@"
+                <h2>Account Blocked</h2>
+                <p>Dear {fullName},</p>
+                <p>Your LearnHub account has been blocked by an administrator. You will not be able to log in or access platform services.</p>
+                <p>Best regards,<br/>LMS Team</p>";
+            await _notificationService.SendEmailAsync(user.Email, "Account Blocked", emailBody);
+
             return true;
         }
 
@@ -82,6 +91,15 @@ namespace LMS.BLL.Services
 
             user.IsActive = true;
             await _userRepository.Update(user);
+
+            string fullName = ($"{user.FirstName} {user.LastName}").Trim();
+            string emailBody = $@"
+                <h2>Account Restored</h2>
+                <p>Dear {fullName},</p>
+                <p>Your LearnHub account has been unblocked. You can now log in and access all your courses.</p>
+                <p>Best regards,<br/>LMS Team</p>";
+            await _notificationService.SendEmailAsync(user.Email, "Account Restored", emailBody);
+
             return true;
         }
 
@@ -94,10 +112,7 @@ namespace LMS.BLL.Services
             user.FirstName = request.FirstName;
             user.LastName = request.LastName;
             user.PhoneNo = request.PhoneNo;
-            if (!string.IsNullOrEmpty(request.ProfilePictureUrl))
-            {
-                user.ProfilePictureUrl = request.ProfilePictureUrl;
-            }
+            user.ProfilePictureUrl = request.ProfilePictureUrl;
             user.UpdatedAt = DateTime.UtcNow;
 
             await _userRepository.Update(user);
@@ -159,7 +174,7 @@ namespace LMS.BLL.Services
                 <p>Dear {fullName},</p>
                 <p>We are pleased to inform you that your application to become an instructor on LMS has been approved. You now have access to instructor features.</p>
                 <p>Best regards,<br/>LMS Team</p>";
-            await _notificationService.SendEmailAsync("nandhiraja16@gmail.com", "Instructor Application Approved", emailBody);
+            await _notificationService.SendEmailAsync(user.Email, "Instructor Application Approved", emailBody);
 
             return true;
         }
@@ -180,7 +195,7 @@ namespace LMS.BLL.Services
                 <p>Dear {fullName},</p>
                 <p>We regret to inform you that your application to become an instructor has been rejected. Please update your profile/details and try again.</p>
                 <p>Best regards,<br/>LMS Team</p>";
-            await _notificationService.SendEmailAsync("nandhiraja16@gmail.com", "Instructor Application Rejected", emailBody);
+            await _notificationService.SendEmailAsync(user.Email, "Instructor Application Rejected", emailBody);
 
             return true;
         }
@@ -209,7 +224,7 @@ namespace LMS.BLL.Services
                 <p>Dear {fullName},</p>
                 <p>Your account role has been demoted back to a Student. If you believe this is in error, please contact administration.</p>
                 <p>Best regards,<br/>LMS Team</p>";
-            await _notificationService.SendEmailAsync("nandhiraja16@gmail.com", "Account Role Demoted", emailBody);
+            await _notificationService.SendEmailAsync(user.Email, "Account Role Demoted", emailBody);
 
             return true;
         }

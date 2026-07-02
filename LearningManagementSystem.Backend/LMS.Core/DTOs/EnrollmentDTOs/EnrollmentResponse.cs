@@ -9,5 +9,7 @@ namespace LMS.Core.DTOs
         public Guid CourseExternalId { get; set; }
         public string CourseTitle { get; set; } = null!;
         public double Progress { get; set; }
+        public string? CourseThumbnailUrl { get; set; }
+        public string InstructorName { get; set; } = null!;
     }
 }

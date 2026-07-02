@@ -67,8 +67,23 @@ namespace LMS.DAL.Repositories
                 .Include(c => c.Instructor)
                 .Include(c => c.Category)
                 .Include(c => c.Language)
+                .Include(c => c.Sections)
+                    .ThenInclude(s => s.Lectures)
+                        .ThenInclude(l => l.Quizzes)
                 .Where(c => c.Status == CourseStatus.PendingReview)
                 .ToListAsync();
+        }
+
+        public async Task<Course?> GetDraftByOriginalCourseIdAsync(int originalCourseId)
+        {
+            return await _context.Courses
+                .Include(c => c.Instructor)
+                .Include(c => c.Category)
+                .Include(c => c.Language)
+                .Include(c => c.Sections)
+                    .ThenInclude(s => s.Lectures)
+                        .ThenInclude(l => l.Quizzes)
+                .FirstOrDefaultAsync(c => c.OriginalCourseId == originalCourseId && c.Status != CourseStatus.Published);
         }
     }
 }

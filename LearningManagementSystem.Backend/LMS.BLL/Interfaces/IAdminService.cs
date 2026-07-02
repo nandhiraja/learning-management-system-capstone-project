@@ -24,5 +24,7 @@ namespace LMS.BLL.Interfaces
         public decimal TotalRevenue { get; set; }
         public int PendingCoursesCount { get; set; }
         public int BlockedUsersCount { get; set; }
+        public int InstructorsCount { get; set; }
+        public int StudentsCount { get; set; }
     }
 }

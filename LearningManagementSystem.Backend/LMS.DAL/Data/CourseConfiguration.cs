@@ -61,6 +61,11 @@ namespace LMS.DAL.Data
                 .WithMany(l => l.Courses)
                 .HasForeignKey(c => c.LanguageId)
                 .OnDelete(DeleteBehavior.Restrict);
+
+            builder.HasOne(c => c.OriginalCourse)
+                .WithMany()
+                .HasForeignKey(c => c.OriginalCourseId)
+                .OnDelete(DeleteBehavior.SetNull);
         }
     }
 }
