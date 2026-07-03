@@ -17,6 +17,7 @@ namespace LMS.Core.DTOs
         public string Status { get; set; } = null!;
         public DateTime CreatedAt { get; set; }
         public DateTime UpdatedAt { get; set; }
+        public int CategoryId { get; set; }
         public UserProfileResponse Instructor { get; set; } = null!;
         public IEnumerable<CourseSectionResponse> Sections { get; set; } = new List<CourseSectionResponse>();
         public Guid? OriginalCourseExternalId { get; set; }

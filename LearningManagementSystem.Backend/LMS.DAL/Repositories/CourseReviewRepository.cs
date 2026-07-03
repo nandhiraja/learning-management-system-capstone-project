@@ -22,6 +22,23 @@ namespace LMS.DAL.Repositories
                 .ToListAsync();
         }
 
+        public async Task<(IEnumerable<CourseReview> Items, int TotalCount)> GetReviewsByCourseIdPaginatedAsync(int courseId, int page, int pageSize)
+        {
+            var query = _context.CourseReviews
+                .Where(r => r.CourseId == courseId);
+
+            var totalCount = await query.CountAsync();
+
+            var items = await query
+                .Include(r => r.User)
+                .OrderByDescending(r => r.CreatedAt)
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync();
+
+            return (items, totalCount);
+        }
+
         public async Task<IEnumerable<CourseReview>> GetReviewsByCourseIdsAsync(IEnumerable<int> courseIds)
         {
             return await _context.CourseReviews

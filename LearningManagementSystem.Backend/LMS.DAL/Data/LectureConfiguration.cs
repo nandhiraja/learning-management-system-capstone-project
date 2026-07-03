@@ -15,8 +15,7 @@ namespace LMS.DAL.Data
                 .HasMaxLength(100);
 
             builder.Property(l => l.ContentUrl)
-                .IsRequired()
-                .HasMaxLength(2000);
+                .IsRequired();
 
             builder.Property(l => l.ContentType)
                 .IsRequired();

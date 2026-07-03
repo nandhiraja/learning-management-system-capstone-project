@@ -99,8 +99,21 @@ namespace LMS.BLL.Services
 
             var allCourses = await _courseRepository.GetCoursesWithDetailsAsync();
             var instructorCourses = allCourses.Where(c => c.InstructorId == user.Id).ToList();
+            var courseIds = instructorCourses.Select(c => c.Id).ToList();
 
-            return _mapper.Map<IEnumerable<CourseResponse>>(instructorCourses);
+            var enrollments = await _enrollmentRepository.GetEnrollmentsByCourseIdsAsync(courseIds);
+            var reviews = await _reviewRepository.GetReviewsByCourseIdsAsync(courseIds);
+
+            var response = _mapper.Map<IEnumerable<CourseResponse>>(instructorCourses).ToList();
+
+            foreach (var resp in response)
+            {
+                resp.StudentsCount = enrollments.Count(e => e.CourseId == resp.Id);
+                var courseReviews = reviews.Where(r => r.CourseId == resp.Id).ToList();
+                resp.Rating = courseReviews.Any() ? courseReviews.Average(r => r.Rating) : 0.0;
+            }
+
+            return response;
         }
 
         public async Task<IEnumerable<InstructorStudentResponse>> GetCourseStudentsAsync(Guid instructorGuid, int courseId)

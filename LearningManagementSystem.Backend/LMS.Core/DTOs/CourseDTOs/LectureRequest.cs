@@ -9,7 +9,6 @@ namespace LMS.Core.DTOs
         public string Title { get; set; } = null!;
 
         [Required]
-        [StringLength(1000)]
         public string ContentUrl { get; set; } = null!;
 
         [Required]

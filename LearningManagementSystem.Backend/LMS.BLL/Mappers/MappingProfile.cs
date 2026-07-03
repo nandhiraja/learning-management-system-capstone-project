@@ -66,7 +66,9 @@ namespace LMS.BLL.Mappers
 
             // Review mappings 
             CreateMap<CourseReview, ReviewResponse>()
-                .ForMember(dest => dest.UserName, opt => opt.MapFrom(src => src.User != null ? src.User.UserName : string.Empty));
+                .ForMember(dest => dest.UserName, opt => opt.MapFrom(src => src.User != null ? src.User.UserName : string.Empty))
+                .ForMember(dest => dest.UserFullName, opt => opt.MapFrom(src => src.User != null ? ($"{src.User.FirstName} {src.User.LastName}").Trim() : string.Empty))
+                .ForMember(dest => dest.ProfilePictureUrl, opt => opt.MapFrom(src => src.User != null ? src.User.ProfilePictureUrl : null));
             CreateMap<ReviewRequest, CourseReview>();
 
             // Certificate mappings

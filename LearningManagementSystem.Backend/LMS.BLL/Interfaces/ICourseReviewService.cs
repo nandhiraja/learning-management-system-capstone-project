@@ -8,7 +8,7 @@ namespace LMS.BLL.Interfaces
     public interface ICourseReviewService
     {
         Task<ReviewResponse> AddReviewAsync(Guid courseGuid, Guid userGuid, ReviewRequest request);
-        Task<IEnumerable<ReviewResponse>> GetReviewsByCourseAsync(Guid courseGuid);
+        Task<(IEnumerable<ReviewResponse> Items, int TotalCount)> GetReviewsByCoursePaginatedAsync(Guid courseGuid, int page, int pageSize);
         Task<bool> UpdateReviewAsync(int reviewId, Guid userGuid, ReviewRequest request);
         Task<bool> DeleteReviewAsync(int reviewId, Guid userGuid);
     }

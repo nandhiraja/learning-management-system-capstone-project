@@ -74,14 +74,14 @@ namespace LMS.BLL.Services
             return _mapper.Map<ReviewResponse>(createdReview);
         }
 
-        public async Task<IEnumerable<ReviewResponse>> GetReviewsByCourseAsync(Guid courseGuid)
+        public async Task<(IEnumerable<ReviewResponse> Items, int TotalCount)> GetReviewsByCoursePaginatedAsync(Guid courseGuid, int page, int pageSize)
         {
             var course = await _courseRepository.GetByExternalIdAsync(courseGuid);
             if (course == null)
                 throw new NotFoundException(nameof(Course), courseGuid);
 
-            var reviews = await _courseReviewRepository.GetReviewsByCourseIdAsync(course.Id);
-            return _mapper.Map<IEnumerable<ReviewResponse>>(reviews);
+            var (reviews, totalCount) = await _courseReviewRepository.GetReviewsByCourseIdPaginatedAsync(course.Id, page, pageSize);
+            return (_mapper.Map<IEnumerable<ReviewResponse>>(reviews), totalCount);
         }
 
         public async Task<bool> UpdateReviewAsync(int reviewId, Guid userGuid, ReviewRequest request)

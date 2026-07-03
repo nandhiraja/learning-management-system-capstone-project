@@ -22,6 +22,7 @@ namespace LMS.DAL.Repositories
                 .Include(c => c.Category)
                 .Include(c => c.Language)
                 .Include(c => c.CourseReviews)
+                .Include(c => c.Enrollments)
                 .ToListAsync();
         }
 
@@ -32,6 +33,7 @@ namespace LMS.DAL.Repositories
                 .Include(c => c.Category)
                 .Include(c => c.Language)
                 .Include(c => c.Enrollments)
+                .Include(c => c.CourseReviews)
                 .Include(c => c.Sections)
                     .ThenInclude(s => s.Lectures)
                         .ThenInclude(l => l.Quizzes)
@@ -45,6 +47,7 @@ namespace LMS.DAL.Repositories
                 .Include(c => c.Category)
                 .Include(c => c.Language)
                 .Include(c => c.Enrollments)
+                .Include(c => c.CourseReviews)
                 .Include(c => c.Sections)
                     .ThenInclude(s => s.Lectures)
                         .ThenInclude(l => l.Quizzes)

@@ -101,10 +101,10 @@ namespace LMS.PL.Controllers
         }
 
         [HttpGet("{courseId}/reviews")]
-        public async Task<IActionResult> GetReviews(Guid courseId)
+        public async Task<IActionResult> GetReviews(Guid courseId, [FromQuery] int page = 1, [FromQuery] int pageSize = 10)
         {
-            var reviews = await _reviewService.GetReviewsByCourseAsync(courseId);
-            return Ok(reviews);
+            var (items, totalCount) = await _reviewService.GetReviewsByCoursePaginatedAsync(courseId, page, pageSize);
+            return Ok(new { items, totalCount });
         }
 
         [Authorize]
