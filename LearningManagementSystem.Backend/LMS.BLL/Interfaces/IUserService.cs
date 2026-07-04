@@ -20,5 +20,6 @@ namespace LMS.BLL.Interfaces
         Task<bool> ApproveInstructorAsync(Guid userGuid);
         Task<bool> RejectInstructorAsync(Guid userGuid);
         Task<bool> DemoteToStudentAsync(Guid userGuid);
+        Task<bool> UpdateCertificateNameAsync(Guid userGuid, string newName);
     }
 }

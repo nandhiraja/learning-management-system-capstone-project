@@ -14,7 +14,8 @@ namespace LMS.BLL.Mappers
             CreateMap<User, RegisterResponse>();
             CreateMap<User, UserEditResponse>();
             CreateMap<User, UserProfileResponse>()
-                .ForMember(dest => dest.Role, opt => opt.MapFrom(src => src.Role != null ? src.Role.Name : string.Empty));
+                .ForMember(dest => dest.Role, opt => opt.MapFrom(src => src.Role != null ? src.Role.Name : string.Empty))
+                .ForMember(dest => dest.CertificateName, opt => opt.MapFrom(src => !string.IsNullOrEmpty(src.CertificateName) ? src.CertificateName : ($"{src.FirstName} {src.LastName}").Trim()));
             CreateMap<RegisterRequest, User>();
             CreateMap<UserEditRequest, User>();
 
@@ -74,7 +75,7 @@ namespace LMS.BLL.Mappers
             // Certificate mappings
             CreateMap<Certificate, CertificateResponse>()
                 .ForMember(dest => dest.UserGuid, opt => opt.MapFrom(src => src.User != null ? src.User.ExternalId : Guid.Empty))
-                .ForMember(dest => dest.UserFullName, opt => opt.MapFrom(src => src.User != null ? ($"{src.User.FirstName} {src.User.LastName}").Trim() : string.Empty))
+                .ForMember(dest => dest.UserFullName, opt => opt.MapFrom(src => !string.IsNullOrEmpty(src.RecipientFullName) ? src.RecipientFullName : (src.User != null ? ($"{src.User.FirstName} {src.User.LastName}").Trim() : string.Empty)))
                 .ForMember(dest => dest.UserEmail, opt => opt.MapFrom(src => src.User != null ? src.User.Email : string.Empty))
                 .ForMember(dest => dest.CourseGuid, opt => opt.MapFrom(src => src.Course != null ? src.Course.ExternalId : Guid.Empty))
                 .ForMember(dest => dest.CourseTitle, opt => opt.MapFrom(src => src.Course != null ? src.Course.Title : string.Empty))

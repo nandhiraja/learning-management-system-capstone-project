@@ -14,6 +14,8 @@ namespace LMS.Core.Models
         public  int RoleId { get; set; }
         public bool IsActive { get; set; }
         public bool InstructorRequestPending { get; set; }
+        public int CertificateNameChangesCount { get; set; } = 0;
+        public string CertificateName { get; set; } = string.Empty;
         public DateTime CreatedAt { get; set; }
         public DateTime UpdatedAt { get; set; }
 

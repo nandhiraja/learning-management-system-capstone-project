@@ -57,5 +57,30 @@ namespace LMS.PL.Controllers
             if (!success) return BadRequest(new { message = "Failed to submit request" });
             return Ok(new { message = "Instructor request submitted successfully. Waiting for admin approval." });
         }
+
+        [Authorize]
+        [HttpPost("me/certificate-name")]
+        public async Task<IActionResult> UpdateCertificateName([FromBody] CertificateNameUpdateRequest request)
+        {
+            try
+            {
+                var success = await _userService.UpdateCertificateNameAsync(CurrentUserGuid, request.NewName);
+                if (!success) return BadRequest(new { message = "Failed to update certificate name" });
+                return Ok(new { message = "Certificate name updated successfully" });
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
+    }
+
+    public class CertificateNameUpdateRequest
+    {
+        public string NewName { get; set; } = null!;
     }
 }

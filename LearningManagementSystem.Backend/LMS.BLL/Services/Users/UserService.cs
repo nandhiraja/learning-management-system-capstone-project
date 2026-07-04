@@ -15,13 +15,15 @@ namespace LMS.BLL.Services
     {
         private readonly IUserRepository _userRepository;
         private readonly IRoleRepository _roleRepository;
+        private readonly ICertificateRepository _certificateRepository;
         private readonly IMapper _mapper;
         private readonly INotificationService _notificationService;
 
-        public UserService(IUserRepository userRepository, IRoleRepository roleRepository, IMapper mapper, INotificationService notificationService)
+        public UserService(IUserRepository userRepository, IRoleRepository roleRepository, ICertificateRepository certificateRepository, IMapper mapper, INotificationService notificationService)
         {
             _userRepository = userRepository;
             _roleRepository = roleRepository;
+            _certificateRepository = certificateRepository;
             _mapper = mapper;
             _notificationService = notificationService;
         }
@@ -225,6 +227,33 @@ namespace LMS.BLL.Services
                 <p>Your account role has been demoted back to a Student. If you believe this is in error, please contact administration.</p>
                 <p>Best regards,<br/>LMS Team</p>";
             await _notificationService.SendEmailAsync(user.Email, "Account Role Demoted", emailBody);
+
+            return true;
+        }
+
+        public async Task<bool> UpdateCertificateNameAsync(Guid userGuid, string newName)
+        {
+            if (string.IsNullOrWhiteSpace(newName))
+                throw new ArgumentException("Name cannot be empty.");
+
+            User? user = await _userRepository.Get(userGuid);
+            if (user == null)
+                throw new NotFoundException(nameof(User), userGuid);
+
+            if (user.CertificateNameChangesCount >= 2)
+                throw new InvalidOperationException("You have reached the limit of name corrections on certificates.");
+
+            user.CertificateName = newName.Trim();
+
+            var certificates = await _certificateRepository.GetCertificatesByUserIdAsync(user.Id);
+            foreach (var cert in certificates)
+            {
+                cert.RecipientFullName = newName.Trim();
+                await _certificateRepository.Update(cert);
+            }
+
+            user.CertificateNameChangesCount++;
+            await _userRepository.Update(user);
 
             return true;
         }

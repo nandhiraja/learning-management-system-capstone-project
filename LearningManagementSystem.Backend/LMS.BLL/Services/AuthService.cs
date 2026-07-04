@@ -78,6 +78,7 @@ namespace LMS.BLL.Services
                 PasswordHash = HashPassword(request.Password),
                 RoleId = defaultRole.Id,
                 IsActive = true,
+                CertificateName = $"{request.FirstName} {request.LastName}".Trim(),
                 CreatedAt = DateTime.UtcNow,
                 UpdatedAt = DateTime.UtcNow
             };

@@ -77,6 +77,7 @@ namespace LMS.BLL.Services
                 UserId = user.Id,
                 CourseId = course.Id,
                 EnrollmentId = enrollment.Id,
+                RecipientFullName = !string.IsNullOrEmpty(user.CertificateName) ? user.CertificateName : $"{user.FirstName} {user.LastName}".Trim(),
                 IssuedDate = DateTime.UtcNow,
                 CertificateUrl = $"/certificates/verify/{Guid.NewGuid()}"
             };

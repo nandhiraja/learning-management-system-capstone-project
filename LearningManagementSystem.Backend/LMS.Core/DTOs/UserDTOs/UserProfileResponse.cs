@@ -14,5 +14,7 @@ namespace LMS.Core.DTOs
         public string Role { get; set; } = null!;
         public bool IsActive { get; set; }
         public bool InstructorRequestPending { get; set; }
+        public int CertificateNameChangesCount { get; set; }
+        public string CertificateName { get; set; } = string.Empty;
     }
 }
