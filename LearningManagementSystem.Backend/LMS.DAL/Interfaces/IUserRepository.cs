@@ -11,5 +11,6 @@ namespace LMS.BLL.Interfaces
         Task<int> GetCountAsync();
         Task<int> GetBlockedUsersCountAsync();
         Task<User?> GetUserByRefreshTokenAsync(string refreshToken);
+        Task<List<User>> GetAllUsersWithRolesAsync();
     }
 }

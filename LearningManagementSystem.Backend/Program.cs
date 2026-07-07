@@ -136,6 +136,7 @@ builder.Services.AddScoped<IAdminService, AdminService>();
 builder.Services.AddScoped<IStorageService, LocalStorageService>();
 builder.Services.AddScoped<IDiscussionService, DiscussionService>();
 builder.Services.AddScoped<ICertificatePdfGenerator, CertificatePdfGenerator>();
+builder.Services.AddScoped<IPublicService, PublicService>();
 
 #endregion
 
