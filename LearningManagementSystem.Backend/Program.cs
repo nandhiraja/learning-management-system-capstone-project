@@ -135,8 +135,12 @@ builder.Services.AddScoped<IInstructorService, InstructorService>();
 builder.Services.AddScoped<IAdminService, AdminService>();
 builder.Services.AddScoped<IStorageService, LocalStorageService>();
 builder.Services.AddScoped<IDiscussionService, DiscussionService>();
+builder.Services.AddScoped<ICertificatePdfGenerator, CertificatePdfGenerator>();
 
 #endregion
+
+// QuestPDF License
+QuestPDF.Settings.License = QuestPDF.Infrastructure.LicenseType.Community;
 
 // AutoMapper
 builder.Services.AddAutoMapper(cfg => { }, typeof(LMS.BLL.Mappers.MappingProfile));

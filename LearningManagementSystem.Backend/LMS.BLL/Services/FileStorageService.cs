@@ -44,6 +44,31 @@ namespace LMS.BLL.Services
             return $"http://localhost:5159/files/{folderName}/{uniqueFileName}";
         }
 
+        public async Task<string> SaveFileAsync(byte[] content, string fileName, string folderName)
+        {
+            if (content == null || content.Length == 0)
+                throw new ArgumentException("Content is empty");
+
+            var webRoot = _env.WebRootPath;
+            if (string.IsNullOrEmpty(webRoot))
+            {
+                webRoot = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot");
+            }
+
+            var uploadsFolder = Path.Combine(webRoot, "uploads", folderName);
+            if (!Directory.Exists(uploadsFolder))
+            {
+                Directory.CreateDirectory(uploadsFolder);
+            }
+
+            var uniqueFileName = $"{Guid.NewGuid()}_{fileName}";
+            var filePath = Path.Combine(uploadsFolder, uniqueFileName);
+
+            await File.WriteAllBytesAsync(filePath, content);
+
+            return $"http://localhost:5159/files/{folderName}/{uniqueFileName}";
+        }
+
         public Task<bool> DeleteFileAsync(string fileUrl)
         {
             if (string.IsNullOrEmpty(fileUrl))

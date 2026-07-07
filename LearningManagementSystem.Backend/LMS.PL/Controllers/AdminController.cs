@@ -19,14 +19,29 @@ namespace LMS.PL.Controllers
         private readonly IUserService _userService;
         private readonly ICategoryService _categoryService;
         private readonly ILanguageService _languageService;
+        private readonly ICertificateService _certificateService;
 
-        public AdminController(IAdminService adminService, ICourseService courseService, IUserService userService, ICategoryService categoryService, ILanguageService languageService)
+        public AdminController(
+            IAdminService adminService, 
+            ICourseService courseService, 
+            IUserService userService, 
+            ICategoryService categoryService, 
+            ILanguageService languageService,
+            ICertificateService certificateService)
         {
             _adminService = adminService;
             _courseService = courseService;
             _userService = userService;
             _categoryService = categoryService;
             _languageService = languageService;
+            _certificateService = certificateService;
+        }
+
+        [HttpPost("certificates/regenerate-all")]
+        public async Task<IActionResult> RegenerateAllCertificates()
+        {
+            var count = await _certificateService.RegenerateAllCertificatesAsync();
+            return Ok(new { message = $"Successfully regenerated {count} certificates." });
         }
 
         [HttpGet("dashboard")]

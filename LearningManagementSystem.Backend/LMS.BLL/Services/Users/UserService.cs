@@ -249,6 +249,7 @@ namespace LMS.BLL.Services
             foreach (var cert in certificates)
             {
                 cert.RecipientFullName = newName.Trim();
+                cert.CertificateUrl = ""; // Clear to force PDF regeneration on next access
                 await _certificateRepository.Update(cert);
             }
 

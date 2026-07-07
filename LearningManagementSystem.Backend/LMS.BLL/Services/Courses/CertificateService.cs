@@ -18,18 +18,24 @@ namespace LMS.BLL.Services
         private readonly ICourseRepository _courseRepository;
         private readonly IEnrollmentRepository _enrollmentRepository;
         private readonly IMapper _mapper;
+        private readonly ICertificatePdfGenerator _pdfGenerator;
+        private readonly IFileStorageService _fileStorageService;
 
         public CertificateService(
             ICertificateRepository certificateRepository,
             IUserRepository userRepository,
             ICourseRepository courseRepository,
             IEnrollmentRepository enrollmentRepository,
+            ICertificatePdfGenerator pdfGenerator,
+            IFileStorageService fileStorageService,
             IMapper mapper)
         {
             _certificateRepository = certificateRepository;
             _userRepository = userRepository;
             _courseRepository = courseRepository;
             _enrollmentRepository = enrollmentRepository;
+            _pdfGenerator = pdfGenerator;
+            _fileStorageService = fileStorageService;
             _mapper = mapper;
         }
 
@@ -46,6 +52,12 @@ namespace LMS.BLL.Services
             var certificates = await _certificateRepository.GetCertificatesByUserIdAsync(user.Id);
             var certificate = certificates.FirstOrDefault(c => c.CourseId == course.Id);
             if (certificate == null) return null;
+
+            if (string.IsNullOrEmpty(certificate.CertificateUrl) || !certificate.CertificateUrl.EndsWith(".pdf"))
+            {
+                certificate.CertificateUrl = await GenerateAndSavePdfAsync(user, course, certificate);
+                await _certificateRepository.Update(certificate);
+            }
 
             return _mapper.Map<CertificateResponse>(certificate);
         }
@@ -69,27 +81,65 @@ namespace LMS.BLL.Services
             var existingCert = certificates.FirstOrDefault(c => c.CourseId == course.Id);
             if (existingCert != null)
             {
+                if (string.IsNullOrEmpty(existingCert.CertificateUrl) || !existingCert.CertificateUrl.EndsWith(".pdf"))
+                {
+                    existingCert.CertificateUrl = await GenerateAndSavePdfAsync(user, course, existingCert);
+                    await _certificateRepository.Update(existingCert);
+                }
                 return _mapper.Map<CertificateResponse>(existingCert);
             }
+
+            var studentName = !string.IsNullOrEmpty(user.CertificateName) ? user.CertificateName : $"{user.FirstName} {user.LastName}".Trim();
 
             var certificate = new Certificate
             {
                 UserId = user.Id,
                 CourseId = course.Id,
                 EnrollmentId = enrollment.Id,
-                RecipientFullName = !string.IsNullOrEmpty(user.CertificateName) ? user.CertificateName : $"{user.FirstName} {user.LastName}".Trim(),
+                RecipientFullName = studentName,
                 IssuedDate = DateTime.UtcNow,
-                CertificateUrl = $"/certificates/verify/{Guid.NewGuid()}"
+                CertificateUrl = "" 
             };
+
+            certificate.CertificateUrl = await GenerateAndSavePdfAsync(user, course, certificate);
 
             var createdCertificate = await _certificateRepository.Create(certificate);
             return _mapper.Map<CertificateResponse>(createdCertificate);
+        }
+
+        private async Task<string> GenerateAndSavePdfAsync(User user, Course course, Certificate certificate)
+        {
+            var instructorName = "Instructor";
+            if (course.InstructorId != 0) {
+                var instructor = await _userRepository.GetUserWithRoleAsync(course.InstructorId);
+                if (instructor != null) {
+                    instructorName = $"{instructor.FirstName} {instructor.LastName}".Trim();
+                }
+            }
+
+            var certificateIdStr = Guid.NewGuid().ToString("N").ToUpper();
+            var studentName = !string.IsNullOrEmpty(certificate.RecipientFullName) ? certificate.RecipientFullName : $"{user.FirstName} {user.LastName}".Trim();
+
+            var pdfBytes = _pdfGenerator.GenerateCertificatePdf(studentName, course.Title, instructorName, certificate.IssuedDate.ToString("MMMM dd, yyyy"), certificateIdStr, user.CertificateNameChangesCount);
+            return await _fileStorageService.SaveFileAsync(pdfBytes, $"{certificateIdStr}.pdf", "certificates");
         }
 
         public async Task<CertificateResponse?> GetCertificateByIdAsync(int certificateId)
         {
             var certificate = await _certificateRepository.Get(certificateId);
             if (certificate == null) return null;
+
+            if (string.IsNullOrEmpty(certificate.CertificateUrl) || !certificate.CertificateUrl.EndsWith(".pdf"))
+            {
+                var user = await _userRepository.GetUserWithRoleAsync(certificate.UserId);
+                var course = await _courseRepository.Get(certificate.CourseId);
+                if (user != null && course != null)
+                {
+                    certificate.CertificateUrl = await GenerateAndSavePdfAsync(user, course, certificate);
+                    await _certificateRepository.Update(certificate);
+                }
+            }
+
             return _mapper.Map<CertificateResponse>(certificate);
         }
 
@@ -100,7 +150,42 @@ namespace LMS.BLL.Services
                 throw new NotFoundException(nameof(User), userGuid);
 
             var certificates = await _certificateRepository.GetCertificatesByUserIdAsync(user.Id);
+            
+            foreach (var cert in certificates)
+            {
+                if (string.IsNullOrEmpty(cert.CertificateUrl) || !cert.CertificateUrl.EndsWith(".pdf"))
+                {
+                    var course = await _courseRepository.Get(cert.CourseId);
+                    if (course != null)
+                    {
+                        cert.CertificateUrl = await GenerateAndSavePdfAsync(user, course, cert);
+                        await _certificateRepository.Update(cert);
+                    }
+                }
+            }
+
             return _mapper.Map<IEnumerable<CertificateResponse>>(certificates);
+        }
+
+        public async Task<int> RegenerateAllCertificatesAsync()
+        {
+            var certificates = await _certificateRepository.GetAllAsync();
+            int count = 0;
+
+            foreach (var cert in certificates)
+            {
+                var user = await _userRepository.GetUserWithRoleAsync(cert.UserId);
+                var course = await _courseRepository.Get(cert.CourseId);
+
+                if (user != null && course != null)
+                {
+                    cert.CertificateUrl = await GenerateAndSavePdfAsync(user, course, cert);
+                    await _certificateRepository.Update(cert);
+                    count++;
+                }
+            }
+
+            return count;
         }
     }
 }

@@ -198,7 +198,10 @@ namespace LMS.BLL.Services
             {
                 foreach (var section in resp.Sections)
                 {
-                    section.Lectures = new List<LectureResponse>();
+                    foreach (var lecture in section.Lectures)
+                    {
+                        lecture.ContentUrl = string.Empty;
+                    }
                 }
             }
 

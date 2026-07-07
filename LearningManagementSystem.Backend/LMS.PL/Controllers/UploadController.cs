@@ -103,5 +103,33 @@ namespace LMS.PL.Controllers
                 return StatusCode(500, $"Internal server error: {ex.Message}");
             }
         }
+
+        [HttpPost("document")]
+        [Authorize(Roles = "Instructor,Admin")]
+        public async Task<IActionResult> UploadDocument(IFormFile file)
+        {
+            if (file == null || file.Length == 0)
+                return BadRequest("No file was uploaded.");
+
+            var allowedExtensions = new[] { ".md", ".txt", ".ppt", ".pptx", ".doc", ".docx", ".xls", ".xlsx" };
+            var extension = Path.GetExtension(file.FileName).ToLower();
+
+            if (!allowedExtensions.Contains(extension))
+                return BadRequest("Invalid document format. Allowed formats: MD, TXT, PPT, PPTX, DOC, DOCX, XLS, XLSX.");
+
+            // 20MB limit for documents
+            if (file.Length > 20 * 1024 * 1024)
+                return BadRequest("Document size exceeds the 20MB limit.");
+
+            try
+            {
+                var fileUrl = await _fileStorageService.SaveFileAsync(file, "documents");
+                return Ok(new { url = fileUrl });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Internal server error: {ex.Message}");
+            }
+        }
     }
 }

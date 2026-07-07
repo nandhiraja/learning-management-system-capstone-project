@@ -59,6 +59,20 @@ namespace LMS.BLL.Services
             if (enrollment == null)
                 throw new InvalidOperationException("User is not enrolled in the course associated with this lecture.");
 
+            // Prevent un-completing a lecture if the user has already earned a certificate for this course
+            if (!request.IsCompleted)
+            {
+                var associatedCourse = await _courseRepository.Get(courseId);
+                if (associatedCourse != null)
+                {
+                    var existingCertificate = await _certificateService.GetCertificateAsync(associatedCourse.ExternalId, userGuid);
+                    if (existingCertificate != null)
+                    {
+                        return false; // Silently reject the un-complete request
+                    }
+                }
+            }
+
             var progress = await _lectureProgressRepository.GetProgressByLectureAndEnrollmentAsync(request.LectureId, enrollment.Id);
             var newStatus = request.IsCompleted ? LectureStatus.Completed : LectureStatus.InProgress;
 
