@@ -84,6 +84,25 @@ namespace LMS.PL.Controllers
             return Ok(new { message = $"Course review processed: {request.Status}" });
         }
 
+        [HttpPost("courses/{courseId}/archive")]
+        public async Task<IActionResult> ArchiveCourse(System.Guid courseId, [FromBody] CourseAdminArchiveRequest request)
+        {
+            try
+            {
+                // CurrentUserGuid is not declared in AdminController, let's parse Guid from ClaimTypes.NameIdentifier
+                var idClaim = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+                var currentAdminGuid = Guid.TryParse(idClaim, out var guid) ? guid : Guid.Empty;
+
+                var success = await _courseService.ArchiveCourseAsync(courseId, currentAdminGuid, isAdmin: true, request.Reason);
+                if (!success) return BadRequest("Could not archive the course. Ensure it is currently published.");
+                return Ok(new { message = "Course archived successfully by Admin" });
+            }
+            catch (UnauthorizedAccessException)
+            {
+                return Forbid();
+            }
+        }
+
         [HttpGet("users")]
         public async Task<IActionResult> GetUsers()
         {
@@ -198,5 +217,11 @@ namespace LMS.PL.Controllers
     {
         [Required]
         public string Action { get; set; } = null!; // "ApproveInstructor", "RejectInstructor", "DemoteToStudent"
+    }
+
+    public class CourseAdminArchiveRequest
+    {
+        [Required]
+        public string Reason { get; set; } = null!;
     }
 }

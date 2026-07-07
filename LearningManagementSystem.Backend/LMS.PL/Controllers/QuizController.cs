@@ -39,7 +39,7 @@ namespace LMS.PL.Controllers
             return Ok(quiz);
         }
 
-        [Authorize(Roles = "Instructor,Admin")]
+        [Authorize(Roles = "Instructor")]
         [HttpPost("lectures/{lectureId}/quiz")]
         public async Task<IActionResult> CreateQuiz(int lectureId, [FromBody] QuizRequest request)
         {
@@ -47,7 +47,7 @@ namespace LMS.PL.Controllers
             return Ok(response);
         }
 
-        [Authorize(Roles = "Instructor,Admin")]
+        [Authorize(Roles = "Instructor")]
         [HttpPut("quizzes/{quizId}")]
         public async Task<IActionResult> UpdateQuiz(int quizId, [FromBody] QuizRequest request)
         {
@@ -56,7 +56,7 @@ namespace LMS.PL.Controllers
             return Ok(new { message = "Updated" });
         }
 
-        [Authorize(Roles = "Instructor,Admin")]
+        [Authorize(Roles = "Instructor")]
         [HttpDelete("quizzes/{quizId}")]
         public async Task<IActionResult> DeleteQuiz(int quizId)
         {
@@ -65,7 +65,7 @@ namespace LMS.PL.Controllers
             return Ok(new { message = "Deleted" });
         }
 
-        [Authorize]
+        [Authorize(Roles = "Student")]
         [HttpPost("quizzes/{quizId}/submit")]
         public async Task<IActionResult> SubmitQuiz(int quizId, [FromBody] QuizSubmitRequest request)
         {

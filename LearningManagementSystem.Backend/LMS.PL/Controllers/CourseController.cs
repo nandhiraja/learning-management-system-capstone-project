@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Mvc;
 using System;
 using System.Security.Claims;
 using System.Threading.Tasks;
+using System.ComponentModel.DataAnnotations;
 
 using Microsoft.AspNetCore.RateLimiting;
 
@@ -57,7 +58,7 @@ namespace LMS.PL.Controllers
             return Ok(course);
         }
 
-        [Authorize(Roles = "Instructor,Admin")]
+        [Authorize(Roles = "Instructor")]
         [HttpPost]
         public async Task<IActionResult> CreateCourse([FromBody] CourseCreateRequest request)
         {
@@ -65,7 +66,7 @@ namespace LMS.PL.Controllers
             return CreatedAtAction(nameof(GetCourseById), new { courseId = course.ExternalId }, course);
         }
 
-        [Authorize(Roles = "Instructor,Admin")]
+        [Authorize(Roles = "Instructor")]
         [HttpPut("{courseId}")]
         public async Task<IActionResult> UpdateCourse(Guid courseId, [FromBody] CourseUpdateRequest request)
         {
@@ -74,13 +75,29 @@ namespace LMS.PL.Controllers
             return Ok(new { message = "Course updated", updatedCourseGuid = result.UpdatedCourseGuid });
         }
 
-        [Authorize(Roles = "Instructor,Admin")]
+        [Authorize(Roles = "Instructor")]
         [HttpDelete("{courseId}")]
         public async Task<IActionResult> DeleteCourse(Guid courseId)
         {
             var success = await _courseService.DeleteCourseAsync(courseId, CurrentUserGuid);
             if (!success) return NotFound();
             return Ok(new { message = "Course deleted" });
+        }
+
+        [Authorize(Roles = "Instructor")]
+        [HttpPost("{courseId}/archive")]
+        public async Task<IActionResult> ArchiveCourse(Guid courseId, [FromBody] CourseArchiveRequest request)
+        {
+            try
+            {
+                var success = await _courseService.ArchiveCourseAsync(courseId, CurrentUserGuid, isAdmin: false, request.Reason);
+                if (!success) return BadRequest("Could not archive the course. Ensure it is currently published.");
+                return Ok(new { message = "Course archived successfully" });
+            }
+            catch (UnauthorizedAccessException)
+            {
+                return Forbid();
+            }
         }
 
         [Authorize(Roles = "Instructor")]
@@ -92,7 +109,7 @@ namespace LMS.PL.Controllers
             return Ok(new { message = "Submitted for admin approval" });
         }
 
-        [Authorize]
+        [Authorize(Roles = "Student")]
         [HttpPost("{courseId}/reviews")]
         public async Task<IActionResult> AddReview(Guid courseId, [FromBody] ReviewRequest request)
         {
@@ -107,7 +124,7 @@ namespace LMS.PL.Controllers
             return Ok(new { items, totalCount });
         }
 
-        [Authorize]
+        [Authorize(Roles = "Student")]
         [HttpDelete("~/api/reviews/{reviewId}")]
         public async Task<IActionResult> DeleteReview(int reviewId)
         {
@@ -115,5 +132,11 @@ namespace LMS.PL.Controllers
             if (!success) return NotFound();
             return Ok(new { message = "Review deleted" });
         }
+    }
+
+    public class CourseArchiveRequest
+    {
+        [Required]
+        public string Reason { get; set; } = null!;
     }
 }

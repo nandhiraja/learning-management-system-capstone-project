@@ -9,7 +9,7 @@ namespace LMS.PL.Controllers
 {
     [ApiController]
     [Route("api/payments")]
-    [Authorize]
+    [Authorize(Roles = "Student")]
     [EnableRateLimiting("api-limiter")]
     public class PaymentController : ControllerBase
     {

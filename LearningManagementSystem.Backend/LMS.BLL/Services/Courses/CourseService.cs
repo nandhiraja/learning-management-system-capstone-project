@@ -911,6 +911,67 @@ namespace LMS.BLL.Services
             }
         }
 
+        public async Task<bool> ArchiveCourseAsync(Guid courseGuid, Guid userGuid, bool isAdmin, string reason)
+        {
+            var course = await _courseRepository.GetByExternalIdAsync(courseGuid);
+            if (course == null) return false;
+
+            var callingUser = await _userRepository.Get(userGuid);
+            if (callingUser == null) return false;
+
+            if (!isAdmin && course.InstructorId != callingUser.Id)
+            {
+                throw new UnauthorizedAccessException("You are not authorized to archive this course.");
+            }
+
+            if (course.Status != CourseStatus.Published)
+            {
+                return false;
+            }
+
+            course.Status = CourseStatus.Archived;
+            course.UpdatedAt = DateTime.UtcNow;
+            await _courseRepository.Update(course);
+
+            if (isAdmin)
+            {
+                var instructor = await _userRepository.GetUserWithRoleAsync(course.InstructorId);
+                if (instructor != null && !string.IsNullOrEmpty(instructor.Email))
+                {
+                    string emailBody = $@"
+                        <h2>Your Course Has Been Archived</h2>
+                        <p>Dear {instructor.FirstName},</p>
+                        <p>We wanted to inform you that your course <strong>'{course.Title}'</strong> has been archived by a platform administrator.</p>
+                        <p><strong>Reason for removal:</strong> {reason}</p>
+                        <p>Enrolled students will continue to have access to this course, but it is no longer available to new learners.</p>
+                        <p>Best regards,<br/>LMS Team</p>";
+                    await _notificationService.SendEmailAsync(instructor.Email, $"[LMS Notice] Course Archived: {course.Title}", emailBody);
+                }
+            }
+            else
+            {
+                var allUsers = await _userRepository.GetAllUsersWithRolesAsync();
+                var admins = allUsers.Where(u => u.Role?.Name == "Admin" && u.IsActive).ToList();
+                var instructor = callingUser;
+
+                foreach (var admin in admins)
+                {
+                    if (!string.IsNullOrEmpty(admin.Email))
+                    {
+                        string emailBody = $@"
+                            <h2>Course Archived by Instructor</h2>
+                            <p>Dear Administrator,</p>
+                            <p>Instructor <strong>{instructor.FirstName} {instructor.LastName}</strong> has archived their course <strong>'{course.Title}'</strong>.</p>
+                            <p><strong>Reason:</strong> {reason}</p>
+                            <p>Best regards,<br/>LMS Team</p>";
+                        await _notificationService.SendEmailAsync(admin.Email, $"[LMS Alert] Course Archived by Instructor: {course.Title}", emailBody);
+                    }
+                }
+            }
+
+            return true;
+        }
+
         #endregion
     }
 }

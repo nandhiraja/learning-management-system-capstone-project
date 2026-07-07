@@ -30,7 +30,7 @@ namespace LMS.PL.Controllers
             }
         }
 
-        [Authorize(Roles = "Instructor,Admin")]
+        [Authorize(Roles = "Instructor")]
         [HttpPost("courses/{courseId}/sections")]
         public async Task<IActionResult> CreateSection(Guid courseId, [FromBody] CourseSectionRequest request)
         {
@@ -38,7 +38,7 @@ namespace LMS.PL.Controllers
             return Ok(response);
         }
 
-        [Authorize(Roles = "Instructor,Admin")]
+        [Authorize(Roles = "Instructor")]
         [HttpPut("sections/{sectionId}")]
         public async Task<IActionResult> UpdateSection(int sectionId, [FromBody] CourseSectionRequest request)
         {
@@ -47,7 +47,7 @@ namespace LMS.PL.Controllers
             return Ok(new { message = "Updated" });
         }
 
-        [Authorize(Roles = "Instructor,Admin")]
+        [Authorize(Roles = "Instructor")]
         [HttpDelete("sections/{sectionId}")]
         public async Task<IActionResult> DeleteSection(int sectionId)
         {

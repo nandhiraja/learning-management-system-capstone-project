@@ -16,5 +16,6 @@ namespace LMS.BLL.Interfaces
         Task<bool> PublishCourseAsync(Guid courseGuid);
         Task<bool> RejectCourseAsync(Guid courseGuid, string reason);
         Task<bool> UploadThumbnailAsync(Guid courseGuid, string fileUrl, Guid userGuid);
+        Task<bool> ArchiveCourseAsync(Guid courseGuid, Guid userGuid, bool isAdmin, string reason);
     }
 }
