@@ -15,5 +15,6 @@ namespace LMS.Core.DTOs
         public Guid CourseGuid { get; set; }
         public string CourseTitle { get; set; } = null!;
         public string InstructorName { get; set; } = null!;
+        public string VerificationId { get; set; } = null!;
     }
 }

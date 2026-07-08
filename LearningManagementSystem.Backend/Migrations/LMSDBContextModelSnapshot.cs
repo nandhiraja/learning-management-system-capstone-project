@@ -80,6 +80,11 @@ namespace LearningManagementSystem.Backend.Migrations
                     b.Property<int>("UserId")
                         .HasColumnType("integer");
 
+                    b.Property<string>("VerificationId")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
                     b.HasKey("Id");
 
                     b.HasIndex("CourseId");
@@ -88,6 +93,9 @@ namespace LearningManagementSystem.Backend.Migrations
                         .IsUnique();
 
                     b.HasIndex("UserId");
+
+                    b.HasIndex("VerificationId")
+                        .IsUnique();
 
                     b.ToTable("Certificates");
                 });

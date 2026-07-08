@@ -197,10 +197,12 @@ var uploadsFullPath = Path.Combine(
 );
 
 // Fallback to absolute path if running outside the root directory during testing
-if (!Directory.Exists(uploadsFullPath))
-{
-    uploadsFullPath = @"/Users/nandhiraja/Presidio-Internship/CapstoneProject/learning-management-system-capstone-project/LearningManagementSystem.Backend/wwwroot/uploads";
-}
+// if (!Directory.Exists(uploadsFullPath))
+// {
+//     uploadsFullPath = @"/Users/nandhiraja/Presidio-Internship/CapstoneProject/learning-management-system-capstone-project/LearningManagementSystem.Backend/wwwroot/uploads";
+// }
+
+Directory.CreateDirectory(uploadsFullPath);
 
 app.UseStaticFiles(new StaticFileOptions
 {

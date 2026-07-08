@@ -14,6 +14,8 @@ namespace LMS.BLL.Services
         private const string Muted = "#64748b";
         private const string Line = "#e2e8f0";
 
+        private const string FrontendBaseUrl = "http://localhost:4200";
+
         public byte[] GenerateCertificatePdf(
             string studentName,
             string courseName,
@@ -24,6 +26,27 @@ namespace LMS.BLL.Services
            ) 
         {
             string platformName = "LearningHub";
+            string verificationUrl = $"{FrontendBaseUrl}/verify-certificate/{certificateId}";
+
+            byte[]? qrCodeBytes = null;
+            try
+            {
+                using (var qrGenerator = new QRCoder.QRCodeGenerator())
+                {
+                    using (var qrCodeData = qrGenerator.CreateQrCode(verificationUrl, QRCoder.QRCodeGenerator.ECCLevel.Q))
+                    {
+                        using (var pngByteQRCode = new QRCoder.PngByteQRCode(qrCodeData))
+                        {
+                            qrCodeBytes = pngByteQRCode.GetGraphic(20);
+                        }
+                    }
+                }
+            }
+            catch (Exception)
+            {
+                // Fallback silently if QR generation fails
+            }
+
             var document = Document.Create(container =>
             {
                 container.Page(page =>
@@ -85,6 +108,8 @@ namespace LMS.BLL.Services
                             .FontSize(23).SemiBold().FontColor(Accent);
                     });
 
+                    page.PageColor(Colors.White);
+
                     page.Footer().Column(footer =>
                     {
                         footer.Spacing(0);
@@ -131,10 +156,20 @@ namespace LMS.BLL.Services
 
                             row.RelativeItem().AlignCenter().Column(col =>
                             {
-                                col.Item().AlignCenter().Width(56).Height(56)
-                                    .Background(AccentSoft).Border(2).BorderColor(Accent)
-                                    .AlignMiddle().AlignCenter()
-                                    .Text("★").FontSize(22).FontColor(Accent);
+                                if (qrCodeBytes != null)
+                                {
+                                    col.Item().AlignCenter().Width(52).Height(52)
+                                        .Image(qrCodeBytes);
+                                    col.Item().PaddingTop(2).AlignCenter()
+                                        .Text("Scan to Verify").FontSize(6).FontColor(Muted).Bold();
+                                }
+                                else
+                                {
+                                    col.Item().AlignCenter().Width(56).Height(56)
+                                        .Background(AccentSoft).Border(2).BorderColor(Accent)
+                                        .AlignMiddle().AlignCenter()
+                                        .Text("★").FontSize(22).FontColor(Accent);
+                                }
                             });
 
                             row.RelativeItem().AlignRight().Column(col =>
@@ -145,6 +180,12 @@ namespace LMS.BLL.Services
                                     .FontSize(9).FontColor(Muted);
                             });
                         });
+
+                        footer.Item().AlignCenter().PaddingBottom(8)
+                            .Text(text => {
+                                text.Span("Verify authenticity at: ").FontSize(8).FontColor(Muted);
+                                text.Span(verificationUrl).FontSize(8).FontColor(Accent).Underline();
+                            });
 
                         footer.Item().Height(6).Background(Accent);
                     });
