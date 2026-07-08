@@ -20,6 +20,7 @@ namespace LMS.BLL.Services
         private readonly ICourseRepository _courseRepository;
         private readonly IUserRepository _userRepository;
         private readonly ICertificateService _certificateService;
+        private readonly INotificationService _notificationService;
 
         public LectureProgressService(
             ILectureProgressRepository lectureProgressRepository,
@@ -28,7 +29,8 @@ namespace LMS.BLL.Services
             ICourseSectionRepository courseSectionRepository,
             ICourseRepository courseRepository,
             IUserRepository userRepository,
-            ICertificateService certificateService)
+            ICertificateService certificateService,
+            INotificationService notificationService)
         {
             _lectureProgressRepository = lectureProgressRepository;
             _enrollmentRepository = enrollmentRepository;
@@ -37,6 +39,7 @@ namespace LMS.BLL.Services
             _courseRepository = courseRepository;
             _userRepository = userRepository;
             _certificateService = certificateService;
+            _notificationService = notificationService;
         }
 
         public async Task<bool> UpdateProgressAsync(Guid userGuid, ProgressUpdateRequest request)
@@ -110,6 +113,17 @@ namespace LMS.BLL.Services
                     {
                         // Generate certificate
                         await _certificateService.GenerateCertificateAsync(course.ExternalId, userGuid);
+                        
+                        // Send course completion email
+                        string emailBody = $@"
+                            <h2>Course Completed! 🎉</h2>
+                            <p>Congratulations, <strong>{user.FirstName} {user.LastName}</strong>!</p>
+                            <p>You have successfully completed the course: <strong>{course.Title}</strong>.</p>
+                            <p>Your certificate of completion has been generated and is now available to download from your dashboard.</p>
+                            <a href='http://localhost:4200/learning/dashboard' class='button' style='display: inline-block; padding: 12px 24px; background-color: #4f46e5; color: white; text-decoration: none; border-radius: 6px; font-weight: 500; margin-top: 20px;'>View Certificate</a>
+                            <br/><br/>
+                            <p>Keep up the great work!</p>";
+                        await _notificationService.SendEmailAsync(user.Email, $"Congratulations! You've completed {course.Title}", emailBody);
                     }
                 }
             }
