@@ -14,6 +14,13 @@ namespace LMS.DAL.Data
                 .IsRequired()
                 .HasMaxLength(2000);
 
+            builder.Property(c => c.VerificationId)
+                .IsRequired()
+                .HasMaxLength(100);
+
+            builder.HasIndex(c => c.VerificationId)
+                .IsUnique();
+
             builder.Property(c => c.IssuedDate)
                 .IsRequired();
 

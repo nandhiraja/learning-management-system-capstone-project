@@ -8,6 +8,7 @@ namespace LMS.Core.Models
         public int EnrollmentId { get; set; }
         public string RecipientFullName { get; set; } = null!;
         public string CertificateUrl { get; set; }= null!;
+        public string VerificationId { get; set; } = null!;
         public DateTime IssuedDate { get; set; }
 
 

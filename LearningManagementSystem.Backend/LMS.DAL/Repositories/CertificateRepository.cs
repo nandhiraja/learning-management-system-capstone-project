@@ -32,5 +32,14 @@ namespace LMS.DAL.Repositories
                     .ThenInclude(co => co.Instructor)
                 .ToListAsync();
         }
+
+        public async Task<Certificate?> GetByVerificationIdAsync(string verificationId)
+        {
+            return await _context.Certificates
+                .Include(c => c.User)
+                .Include(c => c.Course)
+                    .ThenInclude(co => co.Instructor)
+                .FirstOrDefaultAsync(c => c.VerificationId == verificationId);
+        }
     }
 }
