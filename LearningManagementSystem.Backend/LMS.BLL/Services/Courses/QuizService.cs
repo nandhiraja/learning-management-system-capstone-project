@@ -24,6 +24,7 @@ namespace LMS.BLL.Services
         private readonly ICourseRepository _courseRepository;
         private readonly LMSDBContext _context;
         private readonly IMapper _mapper;
+        private readonly IRealTimeNotificationService _realTimeNotificationService;
 
         public QuizService(
             IQuizRepository quizRepository,
@@ -34,7 +35,8 @@ namespace LMS.BLL.Services
             IEnrollmentRepository enrollmentRepository,
             ICourseRepository courseRepository,
             LMSDBContext context,
-            IMapper mapper)
+            IMapper mapper,
+            IRealTimeNotificationService realTimeNotificationService)
         {
             _quizRepository = quizRepository;
             _questionRepository = questionRepository;
@@ -45,6 +47,7 @@ namespace LMS.BLL.Services
             _courseRepository = courseRepository;
             _context = context;
             _mapper = mapper;
+            _realTimeNotificationService = realTimeNotificationService;
         }
 
         public async Task<QuizResponse> CreateQuizAsync(int lectureId, QuizRequest request, Guid userGuid)
@@ -401,6 +404,14 @@ namespace LMS.BLL.Services
 
             int score = (correctAnswers * 100) / totalQuestions;
             bool passed = score >= quiz.PassScore; // passing marks field maps to DTO PassScore
+
+            try
+            {
+                await _realTimeNotificationService.CreateAndSendNotificationAsync(user.Id, "Quiz Completed", $"You completed the quiz '{quiz.Title}' with a score of {score}%!", "Quiz");
+            }
+            catch (Exception)
+            {
+            }
 
             return new QuizSubmitResponse
             {

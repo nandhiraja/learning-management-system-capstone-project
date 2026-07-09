@@ -23,6 +23,7 @@ namespace LMS.BLL.Services
         private readonly LMSDBContext _context;
         private readonly IMapper _mapper;
         private readonly INotificationService _notificationService;
+        private readonly IRealTimeNotificationService _realTimeNotificationService;
 
         public CourseService(
             ICourseRepository courseRepository,
@@ -31,7 +32,8 @@ namespace LMS.BLL.Services
             ILanguageRepository languageRepository,
             LMSDBContext context,
             IMapper mapper,
-            INotificationService notificationService)
+            INotificationService notificationService,
+            IRealTimeNotificationService realTimeNotificationService)
         {
             _courseRepository = courseRepository;
             _userRepository = userRepository;
@@ -40,6 +42,7 @@ namespace LMS.BLL.Services
             _context = context;
             _mapper = mapper;
             _notificationService = notificationService;
+            _realTimeNotificationService = realTimeNotificationService;
         }
 
         public async Task<(IEnumerable<CourseResponse> Items, int TotalCount)> GetCoursesAsync(
@@ -410,6 +413,21 @@ namespace LMS.BLL.Services
             course.Status = CourseStatus.PendingReview;
             course.UpdatedAt = DateTime.UtcNow;
             await _courseRepository.Update(course);
+
+            try
+            {
+                var allUsers = await _userRepository.GetAllUsersWithRolesAsync();
+                var admins = allUsers.Where(u => u.Role.Name == "Admin").ToList();
+                foreach (var admin in admins)
+                {
+                    await _realTimeNotificationService.CreateAndSendNotificationAsync(admin.Id, "Course Submitted", $"Instructor {user.FirstName} {user.LastName} has submitted course '{course.Title}' for review.", "CourseApproval");
+                }
+            }
+            catch (Exception)
+            {
+                // Suppress background notification failures to not block course flow
+            }
+
             return true;
         }
 
@@ -447,6 +465,9 @@ namespace LMS.BLL.Services
                     <p>Best regards,<br/>LMS Team</p>";
                 await _notificationService.SendEmailAsync(recipient, "Course Approved", emailBody);
 
+                // Real-time notification to instructor
+                await _realTimeNotificationService.CreateAndSendNotificationAsync(course.InstructorId, "Course Approved", $"Your course '{course.Title}' has been approved and published.", "CourseApproval");
+
                 return true;
             }
             catch (Exception)
@@ -475,6 +496,9 @@ namespace LMS.BLL.Services
                 <p>Please address this feedback and resubmit your course.</p>
                 <p>Best regards,<br/>LMS Team</p>";
             await _notificationService.SendEmailAsync(recipient, "Course Review Rejected", emailBody);
+
+            // Real-time notification to instructor
+            await _realTimeNotificationService.CreateAndSendNotificationAsync(course.InstructorId, "Course Rejected", $"Your course '{course.Title}' was rejected during review.", "CourseApproval");
 
             return true;
         }

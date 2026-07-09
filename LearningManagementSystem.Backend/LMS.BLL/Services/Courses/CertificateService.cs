@@ -20,6 +20,7 @@ namespace LMS.BLL.Services
         private readonly IMapper _mapper;
         private readonly ICertificatePdfGenerator _pdfGenerator;
         private readonly IFileStorageService _fileStorageService;
+        private readonly IRealTimeNotificationService _realTimeNotificationService;
 
         public CertificateService(
             ICertificateRepository certificateRepository,
@@ -28,6 +29,7 @@ namespace LMS.BLL.Services
             IEnrollmentRepository enrollmentRepository,
             ICertificatePdfGenerator pdfGenerator,
             IFileStorageService fileStorageService,
+            IRealTimeNotificationService realTimeNotificationService,
             IMapper mapper)
         {
             _certificateRepository = certificateRepository;
@@ -36,6 +38,7 @@ namespace LMS.BLL.Services
             _enrollmentRepository = enrollmentRepository;
             _pdfGenerator = pdfGenerator;
             _fileStorageService = fileStorageService;
+            _realTimeNotificationService = realTimeNotificationService;
             _mapper = mapper;
         }
 
@@ -127,6 +130,15 @@ namespace LMS.BLL.Services
             certificate.CertificateUrl = await GenerateAndSavePdfAsync(user, course, certificate);
 
             var createdCertificate = await _certificateRepository.Create(certificate);
+
+            try
+            {
+                await _realTimeNotificationService.CreateAndSendNotificationAsync(user.Id, "Certificate Earned", $"Congratulations! You have successfully earned your certificate for: {course.Title}.", "Certificate");
+            }
+            catch (Exception)
+            {
+            }
+
             return _mapper.Map<CertificateResponse>(createdCertificate);
         }
 
