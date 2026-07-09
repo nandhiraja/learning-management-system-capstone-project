@@ -13,5 +13,6 @@ namespace LMS.BLL.Interfaces
         Task<decimal> GetRevenueByCourseIdsAsync(IEnumerable<int> courseIds);
         Task<decimal> GetTotalRevenueAsync();
         Task<int> GetCountAsync();
+        Task<IEnumerable<OrderItem>> GetAllCompletedOrderItemsAsync();
     }
 }

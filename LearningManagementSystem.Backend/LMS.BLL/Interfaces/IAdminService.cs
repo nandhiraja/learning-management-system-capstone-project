@@ -26,5 +26,10 @@ namespace LMS.BLL.Interfaces
         public int BlockedUsersCount { get; set; }
         public int InstructorsCount { get; set; }
         public int StudentsCount { get; set; }
+
+        public ChartDataDto PlatformGrowthChart { get; set; } = new();
+        public ChartDataDto RevenueByCategoryChart { get; set; } = new();
+        public ChartDataDto CourseStatusChart { get; set; } = new();
+        public ChartDataDto MonthlyRevenueChart { get; set; } = new();
     }
 }

@@ -21,6 +21,11 @@ namespace LMS.BLL.Interfaces
         public double AverageCourseRating { get; set; }
         public int TotalReviewsCount { get; set; }
         public int UnansweredDiscussionsCount { get; set; }
+
+        public ChartDataDto EnrollmentTrendsChart { get; set; } = new();
+        public ChartDataDto RevenuePerCourseChart { get; set; } = new();
+        public ChartDataDto RatingsDistributionChart { get; set; } = new();
+        public ChartDataDto MonthlyRevenueChart { get; set; } = new();
     }
 
     public class InstructorDiscussionResponse

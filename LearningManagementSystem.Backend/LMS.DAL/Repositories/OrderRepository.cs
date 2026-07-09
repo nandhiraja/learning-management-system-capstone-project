@@ -58,5 +58,13 @@ namespace LMS.DAL.Repositories
         {
             return await _context.Orders.CountAsync();
         }
+
+        public async Task<IEnumerable<OrderItem>> GetAllCompletedOrderItemsAsync()
+        {
+            return await _context.OrderItems
+                .Include(oi => oi.Order)
+                .Where(oi => oi.Order.Status == OrderStatus.Completed)
+                .ToListAsync();
+        }
     }
 }

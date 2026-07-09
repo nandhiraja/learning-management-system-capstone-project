@@ -80,6 +80,61 @@ namespace LMS.BLL.Services
             var discussions = await _discussionRepository.GetDiscussionsByCourseIdsAsync(courseIds);
             int unansweredCount = discussions.Count(d => !d.Replies.Any(r => r.UserId == user.Id));
 
+            // 1. Enrollment Trends Chart (Last 6 months)
+            var enrollmentTrendsChart = new ChartDataDto();
+            for (int i = 5; i >= 0; i--)
+            {
+                var month = DateTime.Now.AddMonths(-i);
+                enrollmentTrendsChart.Labels.Add(month.ToString("MMM yyyy"));
+                enrollmentTrendsChart.Data.Add(instructorEnrollments.Count(e => e.EnrolledAt.Year == month.Year && e.EnrolledAt.Month == month.Month));
+            }
+
+            // 2. Revenue Per Course Chart
+            var revenuePerCourseChart = new ChartDataDto();
+            var allCompletedOrderItems = await _orderRepository.GetAllCompletedOrderItemsAsync();
+            var instructorOrderItems = allCompletedOrderItems.Where(oi => courseIds.Contains(oi.CourseId)).ToList();
+            
+            var courseRevenue = new Dictionary<string, decimal>();
+            foreach (var orderItem in instructorOrderItems)
+            {
+                var course = instructorCourses.FirstOrDefault(c => c.Id == orderItem.CourseId);
+                if (course != null)
+                {
+                    if (!courseRevenue.ContainsKey(course.Title))
+                        courseRevenue[course.Title] = 0;
+                    courseRevenue[course.Title] += orderItem.FinalPrice;
+                }
+            }
+
+            foreach (var kvp in courseRevenue.OrderByDescending(k => k.Value))
+            {
+                revenuePerCourseChart.Labels.Add(kvp.Key);
+                revenuePerCourseChart.Data.Add(kvp.Value);
+            }
+
+            // 3. Ratings Distribution Chart
+            var ratingsDistributionChart = new ChartDataDto();
+            var ratingGroups = reviews.GroupBy(r => r.Rating).OrderBy(g => g.Key);
+            foreach (var group in ratingGroups)
+            {
+                ratingsDistributionChart.Labels.Add($"{group.Key} Star");
+                ratingsDistributionChart.Data.Add(group.Count());
+            }
+
+            // 4. Monthly Revenue Chart (Earnings per month for last 6 months)
+            var monthlyRevenueChart = new ChartDataDto();
+            for (int i = 5; i >= 0; i--)
+            {
+                var month = DateTime.Now.AddMonths(-i);
+                monthlyRevenueChart.Labels.Add(month.ToString("MMM yyyy"));
+                
+                var monthRevenue = instructorOrderItems
+                    .Where(oi => oi.Order.OrderDate.Year == month.Year && oi.Order.OrderDate.Month == month.Month)
+                    .Sum(oi => oi.FinalPrice);
+                    
+                monthlyRevenueChart.Data.Add(monthRevenue);
+            }
+
             return new InstructorDashboardResponse
             {
                 TotalCourses = instructorCourses.Count,
@@ -87,7 +142,11 @@ namespace LMS.BLL.Services
                 TotalRevenue = totalRevenue,
                 AverageCourseRating = averageRating,
                 TotalReviewsCount = totalReviews,
-                UnansweredDiscussionsCount = unansweredCount
+                UnansweredDiscussionsCount = unansweredCount,
+                EnrollmentTrendsChart = enrollmentTrendsChart,
+                RevenuePerCourseChart = revenuePerCourseChart,
+                RatingsDistributionChart = ratingsDistributionChart,
+                MonthlyRevenueChart = monthlyRevenueChart
             };
         }
 

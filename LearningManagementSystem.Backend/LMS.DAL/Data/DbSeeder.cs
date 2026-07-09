@@ -377,9 +377,10 @@ namespace LMS.DAL.Data
             var tables = new[] { "Roles", "Users", "Languages", "Categories", "Courses", "CourseSections", "Lectures", "Quizzes", "QuizQuestions", "QuizOptions", "Enrollments", "Orders", "OrderItems", "Payments", "CourseReviews", "Discussions", "DiscussionReplies" };
             foreach (var table in tables)
             {
-                try
-                {
+                try{
+                    #pragma warning disable EF1002
                     await context.Database.ExecuteSqlRawAsync($"SELECT setval(pg_get_serial_sequence('\"{table}\"', 'Id'), COALESCE(MAX(\"Id\"), 1)) FROM \"{table}\";");
+                    #pragma warning restore EF1002
                 }
                 catch
                 {
