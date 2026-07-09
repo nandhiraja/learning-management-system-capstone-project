@@ -1,0 +1,17 @@
+/Development-Docs/
+**/node_modules/
+/dist
+/.vscode
+/.idea
+
+**/bin/
+**/obj/
+**/appsettings.json/
+LearningManagementSystem.Tests
+**/wwwroot/
+
+**.md
+**dummy**
+**.sql
+**.txt
+
