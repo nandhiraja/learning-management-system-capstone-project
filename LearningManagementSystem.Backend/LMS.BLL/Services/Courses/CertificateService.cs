@@ -53,9 +53,21 @@ namespace LMS.BLL.Services
             var certificate = certificates.FirstOrDefault(c => c.CourseId == course.Id);
             if (certificate == null) return null;
 
-            if (string.IsNullOrEmpty(certificate.CertificateUrl) || !certificate.CertificateUrl.EndsWith(".pdf"))
+            bool isUpdated = false;
+            if (string.IsNullOrEmpty(certificate.VerificationId))
+            {
+                certificate.VerificationId = Guid.NewGuid().ToString("N").ToUpper();
+                isUpdated = true;
+            }
+
+            if (string.IsNullOrEmpty(certificate.CertificateUrl) || !certificate.CertificateUrl.EndsWith(".pdf") || isUpdated)
             {
                 certificate.CertificateUrl = await GenerateAndSavePdfAsync(user, course, certificate);
+                isUpdated = true;
+            }
+
+            if (isUpdated)
+            {
                 await _certificateRepository.Update(certificate);
             }
 
@@ -81,9 +93,19 @@ namespace LMS.BLL.Services
             var existingCert = certificates.FirstOrDefault(c => c.CourseId == course.Id);
             if (existingCert != null)
             {
-                if (string.IsNullOrEmpty(existingCert.CertificateUrl) || !existingCert.CertificateUrl.EndsWith(".pdf"))
+                bool isUpdated = false;
+                if (string.IsNullOrEmpty(existingCert.VerificationId))
+                {
+                    existingCert.VerificationId = Guid.NewGuid().ToString("N").ToUpper();
+                    isUpdated = true;
+                }
+                if (string.IsNullOrEmpty(existingCert.CertificateUrl) || !existingCert.CertificateUrl.EndsWith(".pdf") || isUpdated)
                 {
                     existingCert.CertificateUrl = await GenerateAndSavePdfAsync(user, course, existingCert);
+                    isUpdated = true;
+                }
+                if (isUpdated)
+                {
                     await _certificateRepository.Update(existingCert);
                 }
                 return _mapper.Map<CertificateResponse>(existingCert);
@@ -98,6 +120,7 @@ namespace LMS.BLL.Services
                 EnrollmentId = enrollment.Id,
                 RecipientFullName = studentName,
                 IssuedDate = DateTime.UtcNow,
+                VerificationId = Guid.NewGuid().ToString("N").ToUpper(),
                 CertificateUrl = "" 
             };
 
@@ -117,7 +140,11 @@ namespace LMS.BLL.Services
                 }
             }
 
-            var certificateIdStr = Guid.NewGuid().ToString("N").ToUpper();
+            if (string.IsNullOrEmpty(certificate.VerificationId))
+            {
+                certificate.VerificationId = Guid.NewGuid().ToString("N").ToUpper();
+            }
+            var certificateIdStr = certificate.VerificationId;
             var studentName = !string.IsNullOrEmpty(certificate.RecipientFullName) ? certificate.RecipientFullName : $"{user.FirstName} {user.LastName}".Trim();
 
             var pdfBytes = _pdfGenerator.GenerateCertificatePdf(studentName, course.Title, instructorName, certificate.IssuedDate.ToString("MMMM dd, yyyy"), certificateIdStr, user.CertificateNameChangesCount);
@@ -129,15 +156,27 @@ namespace LMS.BLL.Services
             var certificate = await _certificateRepository.Get(certificateId);
             if (certificate == null) return null;
 
-            if (string.IsNullOrEmpty(certificate.CertificateUrl) || !certificate.CertificateUrl.EndsWith(".pdf"))
+            bool isUpdated = false;
+            if (string.IsNullOrEmpty(certificate.VerificationId))
+            {
+                certificate.VerificationId = Guid.NewGuid().ToString("N").ToUpper();
+                isUpdated = true;
+            }
+
+            if (string.IsNullOrEmpty(certificate.CertificateUrl) || !certificate.CertificateUrl.EndsWith(".pdf") || isUpdated)
             {
                 var user = await _userRepository.GetUserWithRoleAsync(certificate.UserId);
                 var course = await _courseRepository.Get(certificate.CourseId);
                 if (user != null && course != null)
                 {
                     certificate.CertificateUrl = await GenerateAndSavePdfAsync(user, course, certificate);
-                    await _certificateRepository.Update(certificate);
+                    isUpdated = true;
                 }
+            }
+
+            if (isUpdated)
+            {
+                await _certificateRepository.Update(certificate);
             }
 
             return _mapper.Map<CertificateResponse>(certificate);
@@ -153,14 +192,26 @@ namespace LMS.BLL.Services
             
             foreach (var cert in certificates)
             {
-                if (string.IsNullOrEmpty(cert.CertificateUrl) || !cert.CertificateUrl.EndsWith(".pdf"))
+                bool isUpdated = false;
+                if (string.IsNullOrEmpty(cert.VerificationId))
+                {
+                    cert.VerificationId = Guid.NewGuid().ToString("N").ToUpper();
+                    isUpdated = true;
+                }
+
+                if (string.IsNullOrEmpty(cert.CertificateUrl) || !cert.CertificateUrl.EndsWith(".pdf") || isUpdated)
                 {
                     var course = await _courseRepository.Get(cert.CourseId);
                     if (course != null)
                     {
                         cert.CertificateUrl = await GenerateAndSavePdfAsync(user, course, cert);
-                        await _certificateRepository.Update(cert);
+                        isUpdated = true;
                     }
+                }
+
+                if (isUpdated)
+                {
+                    await _certificateRepository.Update(cert);
                 }
             }
 
@@ -179,6 +230,10 @@ namespace LMS.BLL.Services
 
                 if (user != null && course != null)
                 {
+                    if (string.IsNullOrEmpty(cert.VerificationId))
+                    {
+                        cert.VerificationId = Guid.NewGuid().ToString("N").ToUpper();
+                    }
                     cert.CertificateUrl = await GenerateAndSavePdfAsync(user, course, cert);
                     await _certificateRepository.Update(cert);
                     count++;
@@ -186,6 +241,31 @@ namespace LMS.BLL.Services
             }
 
             return count;
+        }
+
+        public async Task<CertificateResponse?> GetCertificateByVerificationIdAsync(string verificationId)
+        {
+            var certificate = await _certificateRepository.GetByVerificationIdAsync(verificationId);
+            if (certificate == null) return null;
+
+            bool isUpdated = false;
+            if (string.IsNullOrEmpty(certificate.CertificateUrl) || !certificate.CertificateUrl.EndsWith(".pdf"))
+            {
+                var user = await _userRepository.GetUserWithRoleAsync(certificate.UserId);
+                var course = await _courseRepository.Get(certificate.CourseId);
+                if (user != null && course != null)
+                {
+                    certificate.CertificateUrl = await GenerateAndSavePdfAsync(user, course, certificate);
+                    isUpdated = true;
+                }
+            }
+
+            if (isUpdated)
+            {
+                await _certificateRepository.Update(certificate);
+            }
+
+            return _mapper.Map<CertificateResponse>(certificate);
         }
     }
 }

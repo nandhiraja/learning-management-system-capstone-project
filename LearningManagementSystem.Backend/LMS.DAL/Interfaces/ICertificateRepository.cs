@@ -8,5 +8,6 @@ namespace LMS.BLL.Interfaces
     public interface ICertificateRepository : IRepository<int, Certificate>
     {
         Task<IEnumerable<Certificate>> GetCertificatesByUserIdAsync(int userId);
+        Task<Certificate?> GetByVerificationIdAsync(string verificationId);
     }
 }
