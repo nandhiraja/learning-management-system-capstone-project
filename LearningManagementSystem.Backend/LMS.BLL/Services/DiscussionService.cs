@@ -20,6 +20,7 @@ namespace LMS.BLL.Services
         private readonly IEnrollmentRepository _enrollmentRepository;
         private readonly ILectureRepository _lectureRepository;
         private readonly IMapper _mapper;
+        private readonly IRealTimeNotificationService _realTimeNotificationService;
 
         public DiscussionService(
             IDiscussionRepository discussionRepository,
@@ -27,7 +28,8 @@ namespace LMS.BLL.Services
             IUserRepository userRepository,
             IEnrollmentRepository enrollmentRepository,
             ILectureRepository lectureRepository,
-            IMapper mapper)
+            IMapper mapper,
+            IRealTimeNotificationService realTimeNotificationService)
         {
             _discussionRepository = discussionRepository;
             _courseRepository = courseRepository;
@@ -35,6 +37,7 @@ namespace LMS.BLL.Services
             _enrollmentRepository = enrollmentRepository;
             _lectureRepository = lectureRepository;
             _mapper = mapper;
+            _realTimeNotificationService = realTimeNotificationService;
         }
 
         private async Task ValidateUserAccessAsync(Course course, User user)
@@ -89,6 +92,15 @@ namespace LMS.BLL.Services
 
             var created = await _discussionRepository.Create(discussion);
             created.User = user;
+
+            try
+            {
+                await _realTimeNotificationService.CreateAndSendNotificationAsync(course.InstructorId, "New Discussion Query", $"New discussion query by {user.FirstName} {user.LastName} in '{course.Title}': {request.Title}", "Discussion");
+            }
+            catch (Exception)
+            {
+            }
+
             return _mapper.Map<DiscussionResponse>(created);
         }
 
@@ -197,6 +209,17 @@ namespace LMS.BLL.Services
             // Update discussion thread Update time
             discussion.UpdatedAt = DateTime.UtcNow;
             await _discussionRepository.Update(discussion);
+
+            try
+            {
+                if (discussion.UserId != user.Id)
+                {
+                    await _realTimeNotificationService.CreateAndSendNotificationAsync(discussion.UserId, "New Reply", $"{user.FirstName} {user.LastName} replied to your discussion: '{discussion.Title}'.", "Discussion");
+                }
+            }
+            catch (Exception)
+            {
+            }
 
             var resp = _mapper.Map<DiscussionReplyResponse>(createdReply);
             resp.IsAuthorReply = (createdReply.UserId == discussion.UserId);

@@ -30,6 +30,7 @@ namespace LMS.DAL.Data
         public DbSet<Discussion> Discussions { get; set; }
         public DbSet<DiscussionReply> DiscussionReplies { get; set; }
         public DbSet<DiscussionReplyLike> DiscussionReplyLikes { get; set; }
+        public DbSet<Notification> Notifications { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {

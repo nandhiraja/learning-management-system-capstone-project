@@ -27,7 +27,8 @@ builder.Services.AddCors(options =>
                       {
                           policy.WithOrigins("http://localhost:4200")
                                 .AllowAnyHeader()
-                                .AllowAnyMethod();
+                                .AllowAnyMethod()
+                                .AllowCredentials();
                       });
 });
 
@@ -73,6 +74,20 @@ builder.Services.AddAuthentication(options =>
         ValidAudience = jwtSettings["Audience"] ?? "LMS_Client",
         IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey))
     };
+
+    options.Events = new JwtBearerEvents
+    {
+        OnMessageReceived = context =>
+        {
+            var accessToken = context.Request.Query["access_token"];
+            var path = context.HttpContext.Request.Path;
+            if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/notificationHub"))
+            {
+                context.Token = accessToken;
+            }
+            return Task.CompletedTask;
+        }
+    };
 });
 #endregion
 
@@ -116,6 +131,8 @@ builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<ICategoryService, CategoryService>();
 builder.Services.AddScoped<ILanguageService, LanguageService>();
 builder.Services.AddScoped<INotificationService, NotificationService>();
+builder.Services.AddSignalR();
+builder.Services.AddScoped<IRealTimeNotificationService, RealTimeNotificationService>();
 builder.Services.AddScoped<IRoleService, RoleService>();
 builder.Services.AddScoped<ICourseService, CourseService>();
 builder.Services.AddScoped<ICourseSectionService, CourseSectionService>();
@@ -221,5 +238,6 @@ app.UseAuthorization();
 app.UseStaticFiles();
 
 app.MapControllers();
+app.MapHub<LMS.PL.Hubs.NotificationHub>("/notificationHub");
 
 app.Run();

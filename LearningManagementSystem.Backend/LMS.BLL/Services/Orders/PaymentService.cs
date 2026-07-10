@@ -31,6 +31,7 @@ namespace LMS.BLL.Services
         private readonly ILogger<PaymentService> _logger;
         private readonly INotificationService _notificationService;
         private readonly ICourseRepository _courseRepository;
+        private readonly IRealTimeNotificationService _realTimeNotificationService;
 
         public PaymentService(
             IPaymentRepository paymentRepository,
@@ -44,7 +45,8 @@ namespace LMS.BLL.Services
             IConfiguration configuration,
             ILogger<PaymentService> logger,
             INotificationService notificationService,
-            ICourseRepository courseRepository)
+            ICourseRepository courseRepository,
+            IRealTimeNotificationService realTimeNotificationService)
         {
             _paymentRepository = paymentRepository;
             _orderRepository = orderRepository;
@@ -58,6 +60,7 @@ namespace LMS.BLL.Services
             _logger = logger;
             _notificationService = notificationService;
             _courseRepository = courseRepository;
+            _realTimeNotificationService = realTimeNotificationService;
         }
 
         private IPaymentGateway GetGateway(PaymentMethod method)
@@ -245,6 +248,10 @@ namespace LMS.BLL.Services
                                         <p>You have successfully enrolled in the course: <strong>{course.Title}</strong>.</p>
                                         <p>Happy learning!<br/>LMS Team</p>";
                                     await _notificationService.SendEmailAsync(user.Email, "Enrollment Successful", emailBody);
+
+                                    // Real-time notifications
+                                    await _realTimeNotificationService.CreateAndSendNotificationAsync(order.UserId, "Enrollment Successful", $"You have successfully enrolled in the course: {course.Title}!", "Enrollment");
+                                    await _realTimeNotificationService.CreateAndSendNotificationAsync(course.InstructorId, "New Student Enrolled", $"A new student ({user.FirstName} {user.LastName}) has enrolled in your course: {course.Title}.", "Enrollment");
                                 }
                             }
 
