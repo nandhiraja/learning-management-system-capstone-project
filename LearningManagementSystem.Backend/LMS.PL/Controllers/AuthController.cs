@@ -29,15 +29,23 @@ namespace LMS.PL.Controllers
         [HttpPost("login")]
         public async Task<IActionResult> Login([FromBody] LoginRequest request)
         {
-            var response = await _authService.LoginAsync(request);
-            return Ok(response);
+            var result = await _authService.LoginAsync(request);
+            if (!result.Success)
+            {
+                return Unauthorized(new { message = result.ErrorMessage });
+            }
+            return Ok(result.Data);
         }
 
         [HttpPost("refresh-token")]
         public async Task<IActionResult> RefreshToken([FromBody] RefreshTokenRequest request)
         {
-            var response = await _authService.RefreshTokenAsync(request);
-            return Ok(response);
+            var result = await _authService.RefreshTokenAsync(request);
+            if (!result.Success)
+            {
+                return Unauthorized(new { message = result.ErrorMessage });
+            }
+            return Ok(result.Data);
         }
 
         [HttpPost("logout")]

@@ -87,7 +87,7 @@ namespace LMS.BLL.Services
             return _mapper.Map<RegisterResponse>(createdUser);
         }
 
-        public async Task<LoginResponse> LoginAsync(LoginRequest request)
+        public async Task<AuthResult> LoginAsync(LoginRequest request)
         {
             using var dbTransaction = await _context.Database.BeginTransactionAsync();
             try
@@ -95,12 +95,12 @@ namespace LMS.BLL.Services
                 var user = await _userRepository.GetUserByEmailAsync(request.Email);
                 if (user == null || !VerifyPassword(request.Password, user.PasswordHash))
                 {
-                    throw new ArgumentException("Invalid email or password.");
+                    return AuthResult.Fail("Invalid email or password.");
                 }
 
                 if (!user.IsActive)
                 {
-                    throw new UnauthorizedAccessException("Your account has been blocked.");
+                    return AuthResult.Fail("Your account has been blocked.");
                 }
 
                 var accessToken = _jwtTokenGenerator.GenerateToken(user, new[] { user.Role?.Name ?? "User" });
@@ -123,12 +123,12 @@ namespace LMS.BLL.Services
 
                 await dbTransaction.CommitAsync();
 
-                return new LoginResponse
+                return AuthResult.Ok(new LoginResponse
                 {
                     AccessToken = accessToken,
                     RefreshToken = refreshToken,
                     ExpiresIn = 3600, // 1 hour
-                };
+                });
             }
             catch (Exception)
             {
@@ -137,7 +137,7 @@ namespace LMS.BLL.Services
             }
         }
 
-        public async Task<LoginResponse> RefreshTokenAsync(RefreshTokenRequest request)
+        public async Task<AuthResult> RefreshTokenAsync(RefreshTokenRequest request)
         {
             using var dbTransaction = await _context.Database.BeginTransactionAsync();
             try
@@ -146,12 +146,12 @@ namespace LMS.BLL.Services
                 var existingToken = user?.RefreshTokens.FirstOrDefault(t => t.Token == request.RefreshToken);
                 if (user == null || existingToken == null || existingToken.ExpiryTime < DateTime.UtcNow)
                 {
-                    throw new UnauthorizedAccessException("Invalid or expired refresh token.");
+                    return AuthResult.Fail("Invalid or expired refresh token.");
                 }
 
                 if (!user.IsActive)
                 {
-                    throw new UnauthorizedAccessException("Your account has been blocked.");
+                    return AuthResult.Fail("Your account has been blocked.");
                 }
 
                 var newAccessToken = _jwtTokenGenerator.GenerateToken(user, new[] { user.Role?.Name ?? "User" });
@@ -164,12 +164,12 @@ namespace LMS.BLL.Services
 
                 await dbTransaction.CommitAsync();
 
-                return new LoginResponse
+                return AuthResult.Ok(new LoginResponse
                 {
                     AccessToken = newAccessToken,
                     RefreshToken = newRefreshToken,
                     ExpiresIn = 3600, // 1 hour
-                };
+                });
             }
             catch (Exception)
             {
