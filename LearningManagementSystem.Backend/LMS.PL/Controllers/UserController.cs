@@ -32,7 +32,7 @@ namespace LMS.PL.Controllers
             }
         }
 
-        [Authorize]
+        [Authorize(Policy = "RequireAuth")]
         [HttpGet("me")]
         public async Task<IActionResult> GetMe()
         {
@@ -40,7 +40,7 @@ namespace LMS.PL.Controllers
             return Ok(profile);
         }
 
-        [Authorize]
+        [Authorize(Policy = "RequireAuth")]
         [HttpPut("me")]
         public async Task<IActionResult> UpdateMe([FromBody] UserEditRequest request)
         {
@@ -49,7 +49,7 @@ namespace LMS.PL.Controllers
             return Ok(new { message = "Profile updated" });
         }
 
-        [Authorize]
+        [Authorize(Policy = "RequireAuth")]
         [HttpPost("become-instructor")]
         public async Task<IActionResult> BecomeInstructor()
         {
@@ -58,7 +58,7 @@ namespace LMS.PL.Controllers
             return Ok(new { message = "Instructor request submitted successfully. Waiting for admin approval." });
         }
 
-        [Authorize]
+        [Authorize(Policy = "RequireAuth")]
         [HttpPost("me/certificate-name")]
         public async Task<IActionResult> UpdateCertificateName([FromBody] CertificateNameUpdateRequest request)
         {

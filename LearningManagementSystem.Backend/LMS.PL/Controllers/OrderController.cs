@@ -12,7 +12,7 @@ namespace LMS.PL.Controllers
 {
     [ApiController]
     [Route("api")]
-    [Authorize(Roles = "Student")]
+    [Authorize(Policy = "StudentAccess")]
     [EnableRateLimiting("api-limiter")]
     public class OrderController : ControllerBase
     {

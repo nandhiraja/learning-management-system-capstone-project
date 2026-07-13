@@ -11,7 +11,7 @@ namespace LMS.PL.Controllers
 {
     [ApiController]
     [Route("api/instructor")]
-    [Authorize(Roles = "Instructor")]
+    [Authorize(Policy = "InstructorAccess")]
     [EnableRateLimiting("api-limiter")]
     public class InstructorController : ControllerBase
     {

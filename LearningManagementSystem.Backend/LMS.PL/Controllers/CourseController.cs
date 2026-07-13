@@ -58,7 +58,7 @@ namespace LMS.PL.Controllers
             return Ok(course);
         }
 
-        [Authorize(Roles = "Instructor")]
+        [Authorize(Policy = "InstructorAccess")]
         [HttpPost]
         public async Task<IActionResult> CreateCourse([FromBody] CourseCreateRequest request)
         {
@@ -66,7 +66,7 @@ namespace LMS.PL.Controllers
             return CreatedAtAction(nameof(GetCourseById), new { courseId = course.ExternalId }, course);
         }
 
-        [Authorize(Roles = "Instructor")]
+        [Authorize(Policy = "InstructorAccess")]
         [HttpPut("{courseId}")]
         public async Task<IActionResult> UpdateCourse(Guid courseId, [FromBody] CourseUpdateRequest request)
         {
@@ -75,7 +75,7 @@ namespace LMS.PL.Controllers
             return Ok(new { message = "Course updated", updatedCourseGuid = result.UpdatedCourseGuid });
         }
 
-        [Authorize(Roles = "Instructor")]
+        [Authorize(Policy = "InstructorAccess")]
         [HttpDelete("{courseId}")]
         public async Task<IActionResult> DeleteCourse(Guid courseId)
         {
@@ -84,7 +84,7 @@ namespace LMS.PL.Controllers
             return Ok(new { message = "Course deleted" });
         }
 
-        [Authorize(Roles = "Instructor")]
+        [Authorize(Policy = "InstructorAccess")]
         [HttpPost("{courseId}/archive")]
         public async Task<IActionResult> ArchiveCourse(Guid courseId, [FromBody] CourseArchiveRequest request)
         {
@@ -100,7 +100,7 @@ namespace LMS.PL.Controllers
             }
         }
 
-        [Authorize(Roles = "Instructor")]
+        [Authorize(Policy = "InstructorAccess")]
         [HttpPost("{courseId}/submit")]
         public async Task<IActionResult> SubmitForReview(Guid courseId)
         {
@@ -109,7 +109,7 @@ namespace LMS.PL.Controllers
             return Ok(new { message = "Submitted for admin approval" });
         }
 
-        [Authorize(Roles = "Student")]
+        [Authorize(Policy = "StudentAccess")]
         [HttpPost("{courseId}/reviews")]
         public async Task<IActionResult> AddReview(Guid courseId, [FromBody] ReviewRequest request)
         {
@@ -124,7 +124,7 @@ namespace LMS.PL.Controllers
             return Ok(new { items, totalCount });
         }
 
-        [Authorize(Roles = "Student")]
+        [Authorize(Policy = "StudentAccess")]
         [HttpDelete("~/api/reviews/{reviewId}")]
         public async Task<IActionResult> DeleteReview(int reviewId)
         {

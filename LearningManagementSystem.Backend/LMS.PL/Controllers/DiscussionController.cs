@@ -10,7 +10,7 @@ using System.Threading.Tasks;
 namespace LMS.PL.Controllers
 {
     [ApiController]
-    [Authorize]
+    [Authorize(Policy = "RequireAuth")]
     [EnableRateLimiting("api-limiter")]
     public class DiscussionController : ControllerBase
     {
@@ -58,7 +58,7 @@ namespace LMS.PL.Controllers
             var result = await _discussionService.CreateReplyAsync(discussionId, CurrentUserGuid, request);
             return Ok(result);
         }
-        [Authorize(Roles = "Instructor,Admin")]
+        [Authorize(Policy = "InstructorOrAdmin")]
         [HttpPut("api/discussions/replies/{replyId}/pin")]
         public async Task<IActionResult> TogglePin(Guid replyId)
         {

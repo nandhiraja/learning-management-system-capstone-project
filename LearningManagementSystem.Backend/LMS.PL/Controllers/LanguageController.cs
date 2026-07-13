@@ -28,7 +28,7 @@ namespace LMS.PL.Controllers
         }
 
         [HttpPost("api/languages")]
-        [Authorize(Roles = "Instructor,Admin")]
+        [Authorize(Policy = "InstructorOrAdmin")]
         public async Task<IActionResult> CreateLanguage([FromBody] CreateLanguageRequest request)
         {
             bool isApproved = User.IsInRole("Admin");

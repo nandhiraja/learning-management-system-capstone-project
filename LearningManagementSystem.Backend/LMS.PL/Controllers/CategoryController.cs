@@ -28,7 +28,7 @@ namespace LMS.PL.Controllers
         }
 
         [HttpPost("api/categories")]
-        [Authorize(Roles = "Instructor,Admin")]
+        [Authorize(Policy = "InstructorOrAdmin")]
         public async Task<IActionResult> CreateCategory([FromBody] CreateCategoryRequest request)
         {
             bool isApproved = User.IsInRole("Admin");

@@ -91,6 +91,17 @@ builder.Services.AddAuthentication(options =>
 });
 #endregion
 
+#region Authorization Policies
+builder.Services.AddAuthorization(options =>
+{
+    options.AddPolicy("AdminOnly", policy => policy.RequireRole("Admin"));
+    options.AddPolicy("InstructorAccess", policy => policy.RequireRole("Instructor", "Admin"));
+    options.AddPolicy("StudentAccess", policy => policy.RequireRole("Student"));
+    options.AddPolicy("InstructorOrAdmin", policy => policy.RequireRole("Instructor", "Admin"));
+    options.AddPolicy("RequireAuth", policy => policy.RequireAuthenticatedUser());
+});
+#endregion
+
 
 #region Database Context
 

@@ -10,7 +10,7 @@ namespace LMS.PL.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
-    [Authorize]
+    [Authorize(Policy = "RequireAuth")]
     [EnableRateLimiting("api-limiter")]
     public class NotificationsController : ControllerBase
     {

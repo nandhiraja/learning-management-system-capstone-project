@@ -77,7 +77,7 @@ namespace LMS.PL.Controllers
         }
 
         [HttpPost("video")]
-        [Authorize(Roles = "Instructor")] // Only instructors can upload course videos
+        [Authorize(Policy = "InstructorAccess")] // Only instructors can upload course videos
         public async Task<IActionResult> UploadVideo(IFormFile file)
         {
             if (file == null || file.Length == 0)
@@ -105,7 +105,7 @@ namespace LMS.PL.Controllers
         }
 
         [HttpPost("document")]
-        [Authorize(Roles = "Instructor")]
+        [Authorize(Policy = "InstructorAccess")]
         public async Task<IActionResult> UploadDocument(IFormFile file)
         {
             if (file == null || file.Length == 0)

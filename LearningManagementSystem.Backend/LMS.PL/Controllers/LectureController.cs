@@ -30,7 +30,7 @@ namespace LMS.PL.Controllers
             }
         }
 
-        [Authorize]
+        [Authorize(Policy = "RequireAuth")]
         [HttpGet("lectures/{lectureId}")]
         public async Task<IActionResult> GetLectureById(int lectureId)
         {
@@ -39,7 +39,7 @@ namespace LMS.PL.Controllers
             return Ok(lecture);
         }
 
-        [Authorize(Roles = "Instructor")]
+        [Authorize(Policy = "InstructorAccess")]
         [HttpPost("sections/{sectionId}/lectures")]
         public async Task<IActionResult> CreateLecture(int sectionId, [FromBody] LectureRequest request)
         {
@@ -47,7 +47,7 @@ namespace LMS.PL.Controllers
             return Ok(response);
         }
 
-        [Authorize(Roles = "Instructor")]
+        [Authorize(Policy = "InstructorAccess")]
         [HttpPut("lectures/{lectureId}")]
         public async Task<IActionResult> UpdateLecture(int lectureId, [FromBody] LectureRequest request)
         {
@@ -56,7 +56,7 @@ namespace LMS.PL.Controllers
             return Ok(new { message = "Updated" });
         }
 
-        [Authorize(Roles = "Instructor")]
+        [Authorize(Policy = "InstructorAccess")]
         [HttpDelete("lectures/{lectureId}")]
         public async Task<IActionResult> DeleteLecture(int lectureId)
         {

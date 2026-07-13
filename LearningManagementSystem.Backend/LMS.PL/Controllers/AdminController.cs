@@ -10,7 +10,7 @@ namespace LMS.PL.Controllers
 {
     [ApiController]
     [Route("api/admin")]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Policy = "AdminOnly")]
     [EnableRateLimiting("api-limiter")]
     public class AdminController : ControllerBase
     {
