@@ -19,6 +19,7 @@ namespace LMS.DAL.Data
         public DbSet<Quiz> Quizzes { get; set; }
         public DbSet<QuizQuestion> QuizQuestions { get; set; }
         public DbSet<QuizOption> QuizOptions { get; set; }
+        public DbSet<QuizProgress> QuizProgresses { get; set; }
         public DbSet<CourseReview> CourseReviews { get; set; }
         public DbSet<Enrollment> Enrollments { get; set; }
         public DbSet<Certificate> Certificates { get; set; }

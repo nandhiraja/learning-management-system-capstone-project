@@ -14,5 +14,6 @@ namespace LMS.BLL.Interfaces
         Task<bool> UpdateQuestionAsync(int questionId, QuizQuestionRequest request, Guid userGuid);
         Task<bool> DeleteQuestionAsync(int questionId, Guid userGuid);
         Task<QuizSubmitResponse> SubmitQuizAnswersAsync(int quizId, Guid userGuid, QuizSubmitRequest request);
+        Task<QuizProgressResponse> GetQuizProgressAsync(int quizId, Guid userGuid);
     }
 }

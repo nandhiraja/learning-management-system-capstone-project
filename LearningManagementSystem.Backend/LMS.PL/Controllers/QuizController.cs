@@ -72,5 +72,13 @@ namespace LMS.PL.Controllers
             var response = await _quizService.SubmitQuizAnswersAsync(quizId, CurrentUserGuid, request);
             return Ok(response);
         }
+
+        [Authorize(Policy = "StudentAccess")]
+        [HttpGet("quizzes/{quizId}/progress")]
+        public async Task<IActionResult> GetQuizProgress(int quizId)
+        {
+            var response = await _quizService.GetQuizProgressAsync(quizId, CurrentUserGuid);
+            return Ok(response);
+        }
     }
 }

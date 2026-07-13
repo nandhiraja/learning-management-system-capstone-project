@@ -27,6 +27,7 @@ namespace LMS.Core.Models
         public IEnumerable<CourseReview> Reviews { get; set; } = new List<CourseReview>();
         public IEnumerable<Certificate> Certificates { get; set; } = new List<Certificate>();
         public IEnumerable<Order> Orders { get; set; } = new List<Order>();
+        public IEnumerable<QuizProgress> QuizProgresses { get; set; } = new List<QuizProgress>();
 
 
     }

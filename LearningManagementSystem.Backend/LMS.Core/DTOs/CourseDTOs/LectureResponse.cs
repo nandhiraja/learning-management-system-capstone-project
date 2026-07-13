@@ -8,5 +8,6 @@ namespace LMS.Core.DTOs
         public int DurationInMinutes { get; set; }
         public string ContentType { get; set; } = null!;
         public int? QuizId { get; set; }
+        public string? MediaAuthToken { get; set; }
     }
 }

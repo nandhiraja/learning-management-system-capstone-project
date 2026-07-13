@@ -8,5 +8,6 @@ namespace LMS.BLL.Interfaces
         Task<string> SaveFileAsync(IFormFile file, string folderName);
         Task<string> SaveFileAsync(byte[] content, string fileName, string folderName);
         Task<bool> DeleteFileAsync(string fileUrl);
+        Task<(System.IO.Stream? Stream, string ContentType)> GetFileStreamAsync(string fileUrl);
     }
 }

@@ -21,6 +21,8 @@ namespace LMS.Core.DTOs
         public int CompletedLectures { get; set; }
         public int TotalLectures { get; set; }
         public double Percentage { get; set; }
+        public int CompletedQuizzes { get; set; }
+        public int TotalQuizzes { get; set; }
         public IEnumerable<int> CompletedLectureIds { get; set; } = new List<int>();
     }
 }

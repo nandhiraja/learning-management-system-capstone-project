@@ -25,6 +25,9 @@ namespace LMS.BLL.Services
         private readonly LMSDBContext _context;
         private readonly IMapper _mapper;
         private readonly IRealTimeNotificationService _realTimeNotificationService;
+        private readonly ICertificateService _certificateService;
+        private readonly INotificationService _notificationService;
+        private readonly Microsoft.Extensions.Configuration.IConfiguration _configuration;
 
         public QuizService(
             IQuizRepository quizRepository,
@@ -36,7 +39,10 @@ namespace LMS.BLL.Services
             ICourseRepository courseRepository,
             LMSDBContext context,
             IMapper mapper,
-            IRealTimeNotificationService realTimeNotificationService)
+            IRealTimeNotificationService realTimeNotificationService,
+            ICertificateService certificateService,
+            INotificationService notificationService,
+            Microsoft.Extensions.Configuration.IConfiguration configuration)
         {
             _quizRepository = quizRepository;
             _questionRepository = questionRepository;
@@ -48,6 +54,9 @@ namespace LMS.BLL.Services
             _context = context;
             _mapper = mapper;
             _realTimeNotificationService = realTimeNotificationService;
+            _certificateService = certificateService;
+            _notificationService = notificationService;
+            _configuration = configuration;
         }
 
         public async Task<QuizResponse> CreateQuizAsync(int lectureId, QuizRequest request, Guid userGuid)
@@ -372,7 +381,8 @@ namespace LMS.BLL.Services
 
             // Verify authorization: only Enrolled students, course Instructor, or Admins can submit the quiz
             var enrollments = await _enrollmentRepository.GetEnrollmentsByUserIdAsync(user.Id);
-            bool isEnrolled = enrollments.Any(e => e.CourseId == quiz.CourseId && (e.Status == EnrollmentStatus.Active || e.Status == EnrollmentStatus.Completed));
+            var enrollment = enrollments.FirstOrDefault(e => e.CourseId == quiz.CourseId);
+            bool isEnrolled = enrollment != null && (enrollment.Status == EnrollmentStatus.Active || enrollment.Status == EnrollmentStatus.Completed);
             bool isInstructor = course != null && course.InstructorId == user.Id;
             bool isAdmin = user.Role?.Name?.Equals("Admin", StringComparison.OrdinalIgnoreCase) ?? false;
 
@@ -405,6 +415,40 @@ namespace LMS.BLL.Services
             int score = (correctAnswers * 100) / totalQuestions;
             bool passed = score >= quiz.PassScore; // passing marks field maps to DTO PassScore
 
+            // Update QuizProgress
+            var quizProgress = _context.QuizProgresses.FirstOrDefault(qp => qp.UserId == user.Id && qp.QuizId == quizId);
+            if (quizProgress != null)
+            {
+                if (quizProgress.IsPassed || quizProgress.AttemptsUsed >= quiz.MaxAttempts)
+                {
+                    throw new InvalidOperationException("You cannot submit this quiz again.");
+                }
+
+                quizProgress.AttemptsUsed++;
+                if (score > quizProgress.HighestScore)
+                    quizProgress.HighestScore = score;
+                
+                if (passed)
+                    quizProgress.IsPassed = true;
+                
+                quizProgress.LastAttemptDate = DateTime.UtcNow;
+            }
+            else
+            {
+                quizProgress = new QuizProgress
+                {
+                    UserId = user.Id,
+                    QuizId = quizId,
+                    AttemptsUsed = 1,
+                    HighestScore = score,
+                    IsPassed = passed,
+                    LastAttemptDate = DateTime.UtcNow
+                };
+                _context.QuizProgresses.Add(quizProgress);
+            }
+            
+            await _context.SaveChangesAsync();
+
             try
             {
                 await _realTimeNotificationService.CreateAndSendNotificationAsync(user.Id, "Quiz Completed", $"You completed the quiz '{quiz.Title}' with a score of {score}%!", "Quiz");
@@ -413,10 +457,76 @@ namespace LMS.BLL.Services
             {
             }
 
+            // Check if course progress is 100% and generate certificate
+            if (passed && course != null)
+            {
+                var allLectures = _context.Lectures.Where(l => l.CourseSection.CourseId == quiz.CourseId).ToList();
+                int totalLectures = allLectures.Count;
+
+                var allQuizzes = _context.Quizzes.Where(q => q.CourseId == quiz.CourseId).ToList();
+                int totalQuizzes = allQuizzes.Count;
+
+                if (enrollment != null)
+                {
+                    var lectureProgresses = _context.LectureProgresses.Where(p => p.EnrollmentId == enrollment.Id).ToList();
+                    int completedLecturesCount = lectureProgresses.Count(p => p.Status == LectureStatus.Completed);
+
+                    var quizIds = allQuizzes.Select(q => q.Id).ToList();
+                    int passedQuizzesCount = _context.QuizProgresses.Count(qp => qp.UserId == user.Id && quizIds.Contains(qp.QuizId) && qp.IsPassed);
+
+                    if (completedLecturesCount == totalLectures && passedQuizzesCount == totalQuizzes)
+                    {
+                        // Check if certificate already exists to avoid generating duplicate
+                        var existingCert = _context.Certificates.FirstOrDefault(c => c.EnrollmentId == enrollment.Id);
+                        if (existingCert == null)
+                        {
+                            var certificate = await _certificateService.GenerateCertificateAsync(course.ExternalId, userGuid);
+                            
+                            // Send course completion email
+                            string emailBody = $@"
+                                <h2>Course Completed! 🎉</h2>
+                                <p>Congratulations, <strong>{user.FirstName} {user.LastName}</strong>!</p>
+                                <p>You have successfully completed the course: <strong>{course.Title}</strong>.</p>
+                                <div style='background-color: #f8fafc; padding: 24px; border-radius: 8px; margin: 20px 0;'>
+                                    <p style='margin: 0; color: #475569;'>Certificate ID: <strong>{certificate.Id}</strong></p>
+                                    <p style='margin: 8px 0 0 0; color: #475569;'>Issued: <strong>{certificate.IssuedDate:MMMM dd, yyyy}</strong></p>
+                                </div>
+                                <a href='{_configuration["FrontendBaseUrl"] ?? "http://localhost:4200"}/learning/dashboard' class='button' style='display: inline-block; padding: 12px 24px; background-color: #4f46e5; color: white; text-decoration: none; border-radius: 6px; font-weight: 500; margin-top: 20px;'>View Certificate</a>
+                                <br/><br/>
+                                <p>Keep up the great work!</p>";
+                            await _notificationService.SendEmailAsync(user.Email, $"Congratulations! You've completed {course.Title}", emailBody);
+                        }
+                    }
+                }
+            }
+
             return new QuizSubmitResponse
             {
                 Score = score,
                 Passed = passed
+            };
+        }
+
+        public async Task<QuizProgressResponse> GetQuizProgressAsync(int quizId, Guid userGuid)
+        {
+            var user = await _userRepository.Get(userGuid);
+            if (user == null)
+                throw new NotFoundException("User", userGuid);
+
+            var quiz = await _quizRepository.Get(quizId);
+            if (quiz == null)
+                throw new NotFoundException("Quiz", quizId);
+
+            var quizProgress = _context.QuizProgresses.FirstOrDefault(qp => qp.UserId == user.Id && qp.QuizId == quizId);
+
+            return new QuizProgressResponse
+            {
+                QuizId = quizId,
+                AttemptsUsed = quizProgress?.AttemptsUsed ?? 0,
+                MaxAttempts = quiz.MaxAttempts,
+                HighestScore = quizProgress?.HighestScore ?? 0,
+                PassScore = quiz.PassScore,
+                IsPassed = quizProgress?.IsPassed ?? false
             };
         }
 

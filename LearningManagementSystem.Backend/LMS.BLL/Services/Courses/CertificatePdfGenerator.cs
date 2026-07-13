@@ -3,18 +3,26 @@ using QuestPDF.Helpers;
 using QuestPDF.Infrastructure;
 using System;
 using LMS.BLL.Interfaces;
+using Microsoft.AspNetCore.Hosting;
 
 namespace LMS.BLL.Services
 {
     public class CertificatePdfGenerator : ICertificatePdfGenerator
     {
+        private readonly IWebHostEnvironment _env;
+        private readonly Microsoft.Extensions.Configuration.IConfiguration _configuration;
+
+        public CertificatePdfGenerator(IWebHostEnvironment env, Microsoft.Extensions.Configuration.IConfiguration configuration)
+        {
+            _env = env;
+            _configuration = configuration;
+        }
+
         private const string Ink = "#0f172a";
         private const string Accent = "#4f46e5";
         private const string AccentSoft = "#e0e7ff";
         private const string Muted = "#64748b";
         private const string Line = "#e2e8f0";
-
-        private const string FrontendBaseUrl = "http://localhost:4200";
 
         public byte[] GenerateCertificatePdf(
             string studentName,
@@ -26,7 +34,8 @@ namespace LMS.BLL.Services
            ) 
         {
             string platformName = "LearningHub";
-            string verificationUrl = $"{FrontendBaseUrl}/verify-certificate/{certificateId}";
+            var frontendUrl = _configuration["FrontendBaseUrl"] ?? "http://localhost:4200";
+            var verificationUrl = $"{frontendUrl}/verify-certificate/{certificateId}";
 
             byte[]? qrCodeBytes = null;
             try

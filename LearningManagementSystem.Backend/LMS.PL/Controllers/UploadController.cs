@@ -1,4 +1,5 @@
 using LMS.BLL.Interfaces;
+using LMS.BLL.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -18,10 +19,12 @@ namespace LMS.PL.Controllers
     public class UploadController : ControllerBase
     {
         private readonly IFileStorageService _fileStorageService;
+        private readonly VideoProcessingChannel _videoProcessingChannel;
 
-        public UploadController(IFileStorageService fileStorageService)
+        public UploadController(IFileStorageService fileStorageService, VideoProcessingChannel videoProcessingChannel)
         {
             _fileStorageService = fileStorageService;
+            _videoProcessingChannel = videoProcessingChannel;
         }
 
         [HttpPost("image")]
@@ -96,7 +99,18 @@ namespace LMS.PL.Controllers
             try
             {
                 var fileUrl = await _fileStorageService.SaveFileAsync(file, "videos");
-                return Ok(new { url = fileUrl });
+                
+                // Enqueue the original .mp4 file path for background FFmpeg encoding
+                await _videoProcessingChannel.AddVideoAsync(fileUrl);
+                
+                // Return the predicted .m3u8 playlist path so the frontend can save it immediately
+                var predictedPlaylistUrl = fileUrl.Replace(".mp4", "/playlist.m3u8")
+                                                  .Replace(".mov", "/playlist.m3u8")
+                                                  .Replace(".avi", "/playlist.m3u8")
+                                                  .Replace(".mkv", "/playlist.m3u8")
+                                                  .Replace(".webm", "/playlist.m3u8");
+                                                  
+                return Ok(new { url = predictedPlaylistUrl });
             }
             catch (Exception ex)
             {

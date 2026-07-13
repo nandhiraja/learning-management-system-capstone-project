@@ -31,7 +31,8 @@ namespace LMS.BLL.Mappers
 
             // Lecture mappings
             CreateMap<Lecture, LectureResponse>()
-                .ForMember(dest => dest.QuizId, opt => opt.MapFrom(src => src.Quizzes != null && src.Quizzes.Any() ? src.Quizzes.First().Id : (int?)null));
+                .ForMember(dest => dest.QuizId, opt => opt.MapFrom(src => src.Quizzes != null && src.Quizzes.Any() ? src.Quizzes.First().Id : (int?)null))
+                .AfterMap<LectureResponseSecureMediaMappingAction>();
             CreateMap<LectureRequest, Lecture>()
                 .ForMember(dest => dest.ContentType, opt => opt.MapFrom(src => Enum.Parse<ContentType>(src.ContentType, true)));
 

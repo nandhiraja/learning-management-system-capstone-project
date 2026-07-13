@@ -14,7 +14,7 @@ namespace LMS.PL.Controllers
 {
     [ApiController]
     [Route("api")]
-    [Authorize(Policy = "StudentAccess")]
+    [Authorize(Policy = "RequireAuth")]
     [EnableRateLimiting("api-limiter")]
     public class EnrollmentController : ControllerBase
     {

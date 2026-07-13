@@ -20,12 +20,14 @@ var builder = WebApplication.CreateBuilder(args);
 
 
 var MyAllowSpecificOrigins = "_myAllowSpecificOrigins";
+var frontendUrl = builder.Configuration["FrontendBaseUrl"] ?? "http://localhost:4200";
+
 builder.Services.AddCors(options =>
 {
     options.AddPolicy(name: MyAllowSpecificOrigins,
                       policy =>
                       {
-                          policy.WithOrigins("http://localhost:4200")
+                          policy.WithOrigins(frontendUrl)
                                 .AllowAnyHeader()
                                 .AllowAnyMethod()
                                 .AllowCredentials();
@@ -165,6 +167,11 @@ builder.Services.AddScoped<IStorageService, LocalStorageService>();
 builder.Services.AddScoped<IDiscussionService, DiscussionService>();
 builder.Services.AddScoped<ICertificatePdfGenerator, CertificatePdfGenerator>();
 builder.Services.AddScoped<IPublicService, PublicService>();
+builder.Services.AddScoped<IMediaTokenService, MediaTokenService>();
+builder.Services.AddTransient<LMS.BLL.Mappers.LectureResponseSecureMediaMappingAction>();
+builder.Services.AddDataProtection();
+builder.Services.AddSingleton<VideoProcessingChannel>();
+builder.Services.AddHostedService<VideoEncoderBackgroundService>();
 
 #endregion
 

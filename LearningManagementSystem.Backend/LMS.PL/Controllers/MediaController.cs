@@ -3,77 +3,96 @@ using LMS.BLL.Interfaces;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using System.IO;
-using System.Text.RegularExpressions;
+using System;
+using System.Security.Claims;
+using Microsoft.AspNetCore.StaticFiles;
 
 namespace LMS.PL.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
+    // Notice we do NOT use [Authorize] here because standard HTML video/object tags 
+    // do not support sending Authorization headers. We rely on the secure token in the query string.
     public class MediaController : ControllerBase
     {
-        private readonly IStorageService _storageService;
+        private readonly IMediaTokenService _mediaTokenService;
+        private readonly IFileStorageService _fileStorageService;
 
-        public MediaController(IStorageService storageService)
+        public MediaController(IMediaTokenService mediaTokenService, IFileStorageService fileStorageService)
         {
-            _storageService = storageService;
+            _mediaTokenService = mediaTokenService;
+            _fileStorageService = fileStorageService;
         }
 
-        [HttpGet("stream")]
-        public async Task<IActionResult> StreamVideo([FromQuery] string path)
+        protected Guid CurrentUserGuid
         {
-            try
+            get
             {
-                // We extract the relative path from the full URL if necessary
-                var relativePath = ExtractRelativePath(path);
-                var stream = await _storageService.GetFileAsync(relativePath);
-                return File(stream, "video/mp4", enableRangeProcessing: true);
-            }
-            catch (FileNotFoundException)
-            {
-                return NotFound("Video file not found.");
+                // Note: Since this endpoint is hit anonymously by the browser, User.Identity might be null.
+                // The actual user identity is embedded and verified inside the token!
+                var idClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                return Guid.TryParse(idClaim, out var guid) ? guid : Guid.Empty;
             }
         }
 
-        [HttpGet("document")]
-        public async Task<IActionResult> GetDocument([FromQuery] string path)
+        [HttpGet("authorize")]
+        public IActionResult Authorize([FromQuery] string token)
         {
-            try
+            if (string.IsNullOrEmpty(token))
             {
-                var relativePath = ExtractRelativePath(path);
-                var stream = await _storageService.GetFileAsync(relativePath);
-                
-                string contentType = "application/pdf";
-                if (relativePath.EndsWith(".txt") || relativePath.EndsWith(".md"))
-                {
-                    contentType = "text/plain";
-                }
+                return Unauthorized("Token is required.");
+            }
 
-                return File(stream, contentType);
-            }
-            catch (FileNotFoundException)
+            if (!_mediaTokenService.ValidateToken(token, out var _))
             {
-                return NotFound("Document file not found.");
+                return Unauthorized("Invalid or expired media token.");
             }
+
+            // Set an HTTP-Only cookie that lasts for 30 minutes
+            var cookieOptions = new CookieOptions
+            {
+                HttpOnly = true,
+                Secure = true,
+                SameSite = SameSiteMode.None,
+                Expires = DateTimeOffset.UtcNow.AddMinutes(30)
+            };
+
+            Response.Cookies.Append("LMS_MediaAuth", token, cookieOptions);
+            return Ok();
         }
 
-        private string ExtractRelativePath(string fullUrlOrPath)
+        [HttpGet("stream/{*filePath}")]
+        public async Task<IActionResult> StreamMedia(string filePath)
         {
-            if (string.IsNullOrEmpty(fullUrlOrPath)) return string.Empty;
-
-            // If it's a full URL (e.g. http://localhost:5159/files/videos/xyz.mp4)
-            // we just want to extract the path portion starting from "files/"
-            if (fullUrlOrPath.Contains("/files/"))
+            if (!Request.Cookies.TryGetValue("LMS_MediaAuth", out var token) || string.IsNullOrEmpty(token))
             {
-                var index = fullUrlOrPath.IndexOf("/files/");
-                // The storage service prepends wwwroot, and the static files maps "files" to "wwwroot/uploads".
-                // Since LocalStorageService currently assumes it's reading relative to wwwroot,
-                // we should map "/files/xyz" to "uploads/xyz".
-                var subPath = fullUrlOrPath.Substring(index + 7); // Skip "/files/"
-                return "uploads/" + subPath;
+                return Unauthorized("Authentication cookie is missing.");
             }
 
-            // Fallback
-            return fullUrlOrPath.TrimStart('/');
+            if (!_mediaTokenService.ValidateToken(token, out var authorizedPath))
+            {
+                return Unauthorized("Invalid or expired media token.");
+            }
+
+            // Verify that the requested file path belongs to the authorized directory
+            // E.g., authorizedPath might be "secure_uploads/videos/123/playlist.m3u8"
+            // The requested path might be "secure_uploads/videos/123/segment_000.ts"
+            // As long as they share the same base directory, we allow it.
+            var authorizedDir = Path.GetDirectoryName(authorizedPath)?.Replace("\\", "/");
+            var requestedDir = Path.GetDirectoryName(filePath)?.Replace("\\", "/");
+
+            if (string.IsNullOrEmpty(authorizedDir) || string.IsNullOrEmpty(requestedDir) || !requestedDir.StartsWith(authorizedDir))
+            {
+                return Forbid("You are not authorized to access this file.");
+            }
+
+            var (stream, contentType) = await _fileStorageService.GetFileStreamAsync(filePath);
+            if (stream == null)
+            {
+                return NotFound("File not found.");
+            }
+
+            return File(stream, contentType, enableRangeProcessing: true);
         }
     }
 }

@@ -21,6 +21,8 @@ namespace LMS.BLL.Services
         private readonly IUserRepository _userRepository;
         private readonly ICertificateService _certificateService;
         private readonly INotificationService _notificationService;
+        private readonly IConfiguration _configuration;
+        private readonly LMS.DAL.Data.LMSDBContext _dbContext;
 
         public LectureProgressService(
             ILectureProgressRepository lectureProgressRepository,
@@ -30,7 +32,9 @@ namespace LMS.BLL.Services
             ICourseRepository courseRepository,
             IUserRepository userRepository,
             ICertificateService certificateService,
-            INotificationService notificationService)
+            INotificationService notificationService,
+            IConfiguration configuration,
+            LMS.DAL.Data.LMSDBContext dbContext)
         {
             _lectureProgressRepository = lectureProgressRepository;
             _enrollmentRepository = enrollmentRepository;
@@ -40,6 +44,8 @@ namespace LMS.BLL.Services
             _userRepository = userRepository;
             _certificateService = certificateService;
             _notificationService = notificationService;
+            _configuration = configuration;
+            _dbContext = dbContext;
         }
 
         public async Task<bool> UpdateProgressAsync(Guid userGuid, ProgressUpdateRequest request)
@@ -104,26 +110,43 @@ namespace LMS.BLL.Services
             if (course != null)
             {
                 int totalLectures = course.Sections.SelectMany(s => s.Lectures).Count();
-                if (totalLectures > 0)
+                var allQuizzes = course.Sections.SelectMany(s => s.Lectures).SelectMany(l => l.Quizzes).ToList();
+                int totalQuizzes = allQuizzes.Count;
+
+                if (totalLectures > 0 || totalQuizzes > 0)
                 {
                     var progresses = await _lectureProgressRepository.GetProgressByEnrollmentIdAsync(enrollment.Id);
                     int completedCount = progresses.Count(p => p.Status == LectureStatus.Completed);
 
-                    if (completedCount == totalLectures)
+                    int passedQuizzes = 0;
+                    if (totalQuizzes > 0)
                     {
-                        // Generate certificate
-                        await _certificateService.GenerateCertificateAsync(course.ExternalId, userGuid);
-                        
-                        // Send course completion email
-                        string emailBody = $@"
-                            <h2>Course Completed! 🎉</h2>
-                            <p>Congratulations, <strong>{user.FirstName} {user.LastName}</strong>!</p>
-                            <p>You have successfully completed the course: <strong>{course.Title}</strong>.</p>
-                            <p>Your certificate of completion has been generated and is now available to download from your dashboard.</p>
-                            <a href='http://localhost:4200/learning/dashboard' class='button' style='display: inline-block; padding: 12px 24px; background-color: #4f46e5; color: white; text-decoration: none; border-radius: 6px; font-weight: 500; margin-top: 20px;'>View Certificate</a>
-                            <br/><br/>
-                            <p>Keep up the great work!</p>";
-                        await _notificationService.SendEmailAsync(user.Email, $"Congratulations! You've completed {course.Title}", emailBody);
+                        var quizIds = allQuizzes.Select(q => q.Id).ToList();
+                        passedQuizzes = _dbContext.QuizProgresses.Count(qp => qp.UserId == user.Id && quizIds.Contains(qp.QuizId) && qp.IsPassed);
+                    }
+
+                    if (completedCount == totalLectures && passedQuizzes == totalQuizzes)
+                    {
+                        var existingCert = _dbContext.Certificates.FirstOrDefault(c => c.EnrollmentId == enrollment.Id);
+                        if (existingCert == null)
+                        {
+                            // Generate certificate
+                            var certificate = await _certificateService.GenerateCertificateAsync(course.ExternalId, userGuid);
+                            
+                            // Send course completion email
+                            string emailBody = $@"
+                                <h2>Course Completed! 🎉</h2>
+                                <p>Congratulations, <strong>{user.FirstName} {user.LastName}</strong>!</p>
+                                <p>You have successfully completed the course: <strong>{course.Title}</strong>.</p>
+                                <div style='background-color: #f8fafc; padding: 24px; border-radius: 8px; margin: 20px 0;'>
+                                    <p style='margin: 0; color: #475569;'>Certificate ID: <strong>{certificate.Id}</strong></p>
+                                    <p style='margin: 8px 0 0 0; color: #475569;'>Issued: <strong>{certificate.IssuedDate:MMMM dd, yyyy}</strong></p>
+                                </div>
+                                <a href='{_configuration["FrontendBaseUrl"] ?? "http://localhost:4200"}/learning/dashboard' class='button' style='display: inline-block; padding: 12px 24px; background-color: #4f46e5; color: white; text-decoration: none; border-radius: 6px; font-weight: 500; margin-top: 20px;'>View Certificate</a>
+                                <br/><br/>
+                                <p>Keep up the great work!</p>";
+                            await _notificationService.SendEmailAsync(user.Email, $"Congratulations! You've completed {course.Title}", emailBody);
+                        }
                     }
                 }
             }
@@ -149,7 +172,10 @@ namespace LMS.BLL.Services
                 throw new NotFoundException(nameof(Course), enrollment.CourseId);
 
             int totalLectures = course.Sections.SelectMany(s => s.Lectures).Count();
-            if (totalLectures == 0)
+            var allQuizzes = course.Sections.SelectMany(s => s.Lectures).SelectMany(l => l.Quizzes).ToList();
+            int totalQuizzes = allQuizzes.Count;
+
+            if (totalLectures == 0 && totalQuizzes == 0)
             {
                 return new ProgressResponse
                 {
@@ -163,11 +189,23 @@ namespace LMS.BLL.Services
             var progresses = await _lectureProgressRepository.GetProgressByEnrollmentIdAsync(enrollment.Id);
             var completedList = progresses.Where(p => p.Status == LectureStatus.Completed).Select(p => p.LectureId).ToList();
 
+            int passedQuizzes = 0;
+            if (totalQuizzes > 0)
+            {
+                var quizIds = allQuizzes.Select(q => q.Id).ToList();
+                passedQuizzes = _dbContext.QuizProgresses.Count(qp => qp.UserId == user.Id && quizIds.Contains(qp.QuizId) && qp.IsPassed);
+            }
+
+            int totalItems = totalLectures + totalQuizzes;
+            int completedItems = completedList.Count + passedQuizzes;
+
             return new ProgressResponse
             {
                 CompletedLectures = completedList.Count,
                 TotalLectures = totalLectures,
-                Percentage = Math.Round(((double)completedList.Count / totalLectures) * 100.0, 2),
+                CompletedQuizzes = passedQuizzes,
+                TotalQuizzes = totalQuizzes,
+                Percentage = Math.Round(((double)completedItems / totalItems) * 100.0, 2),
                 CompletedLectureIds = completedList
             };
         }

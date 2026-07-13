@@ -14,10 +14,14 @@ namespace LMS.PL.Controllers
     public class PaymentController : ControllerBase
     {
         private readonly IPaymentService _paymentService;
+        private readonly ICartService _cartService;
+        private readonly IConfiguration _configuration;
 
-        public PaymentController(IPaymentService paymentService)
+        public PaymentController(IPaymentService paymentService, ICartService cartService, IConfiguration configuration)
         {
             _paymentService = paymentService;
+            _cartService = cartService;
+            _configuration = configuration;
         }
 
         [HttpPost]
@@ -46,8 +50,10 @@ namespace LMS.PL.Controllers
 
         [AllowAnonymous]
         [HttpGet("paypal-callback")]
-        public async Task<IActionResult> PayPalCallback([FromQuery] string token, [FromQuery] string PayerID)
+        public async Task<IActionResult> PayPalCallback([FromQuery] string paymentId, [FromQuery] string token, [FromQuery] string PayerID)
         {
+            var frontendUrl = _configuration["FrontendBaseUrl"] ?? "http://localhost:4200";
+            
             var payload = new System.Collections.Generic.Dictionary<string, object>
             {
                 { "transactionId", token },
@@ -56,16 +62,17 @@ namespace LMS.PL.Controllers
             var success = await _paymentService.VerifyPaymentAsync(payload);
             if (success)
             {
-                return Redirect("http://localhost:4200/learning/dashboard?paymentStatus=success");
+                return Redirect($"{frontendUrl}/learning/dashboard?paymentStatus=success");
             }
-            return Redirect("http://localhost:4200/cart?paymentStatus=failed");
+            return Redirect($"{frontendUrl}/cart?paymentStatus=failed");
         }
 
         [AllowAnonymous]
         [HttpGet("paypal-cancel")]
-        public async Task<IActionResult> PayPalCancel()
+        public IActionResult PayPalCancel()
         {
-            return Redirect("http://localhost:4200/cart?paymentStatus=cancelled");
+            var frontendUrl = _configuration["FrontendBaseUrl"] ?? "http://localhost:4200";
+            return Redirect($"{frontendUrl}/cart?paymentStatus=cancelled");
         }
     }
 }
