@@ -34,6 +34,29 @@ namespace LMS.DAL.Repositories
                         .ThenInclude(c => c.Instructor)
                 .FirstOrDefaultAsync(l => l.Id == lectureId);
         }
+
+        public async Task<string> GetCombinedTranscriptTextAsync(int lectureId)
+        {
+            var segments = await _context.LectureTranscripts
+                .Where(t => t.LectureId == lectureId)
+                .OrderBy(t => t.StartTime)
+                .Select(t => new { t.StartTime, t.Text })
+                .ToListAsync();
+
+            var formattedSegments = segments.Select(s =>
+            {
+                var time = TimeSpan.FromSeconds(s.StartTime);
+                string timestamp = time.TotalHours >= 1 ? time.ToString(@"hh\:mm\:ss") : time.ToString(@"mm\:ss");
+                return $"[{timestamp}] {s.Text}";
+            });
+
+            return string.Join(" ", formattedSegments);
+        }
+
+        public async Task<bool> HasTranscriptAsync(int lectureId)
+        {
+            return await _context.LectureTranscripts.AnyAsync(t => t.LectureId == lectureId);
+        }
     }
 }
 

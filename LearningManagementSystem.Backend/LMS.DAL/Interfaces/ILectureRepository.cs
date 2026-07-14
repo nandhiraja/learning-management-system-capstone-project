@@ -9,6 +9,8 @@ namespace LMS.BLL.Interfaces
     {
         Task<IEnumerable<Lecture>> GetLecturesBySectionIdAsync(int sectionId);
         Task<Lecture?> GetLectureWithDetailsAsync(int lectureId);
+        Task<string> GetCombinedTranscriptTextAsync(int lectureId);
+        Task<bool> HasTranscriptAsync(int lectureId);
     }
 }
 

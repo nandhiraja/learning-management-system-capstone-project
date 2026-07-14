@@ -1,4 +1,5 @@
 using System;
+using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using AutoMapper;
@@ -7,6 +8,7 @@ using LMS.Core.DTOs;
 using LMS.Core.Enums;
 using LMS.Core.Models;
 using LMS.Core.Exception;
+using LMS.DAL.Data;
 using LMS.DAL.Interfaces;
 
 namespace LMS.BLL.Services
@@ -18,19 +20,25 @@ namespace LMS.BLL.Services
         private readonly ICourseRepository _courseRepository;
         private readonly IUserRepository _userRepository;
         private readonly IMapper _mapper;
+        private readonly IAiServiceClient _aiServiceClient;
+        private readonly LMSDBContext _context;
 
         public LectureService(
             ILectureRepository lectureRepository,
             ICourseSectionRepository sectionRepository,
             ICourseRepository courseRepository,
             IUserRepository userRepository,
-            IMapper mapper)
+            IMapper mapper,
+            IAiServiceClient aiServiceClient,
+            LMSDBContext context)
         {
             _lectureRepository = lectureRepository;
             _sectionRepository = sectionRepository;
             _courseRepository = courseRepository;
             _userRepository = userRepository;
             _mapper = mapper;
+            _aiServiceClient = aiServiceClient;
+            _context = context;
         }
 
         public async Task<LectureResponse> CreateLectureAsync(int sectionId, LectureRequest request, Guid userGuid)
@@ -205,6 +213,12 @@ namespace LMS.BLL.Services
             lecture.ContentUrl = fileUrl;
             await _lectureRepository.Update(lecture);
 
+            // PDF Text Extraction Integration
+            if (lecture.ContentType == ContentType.pdf)
+            {
+                await ProcessPdfTranscriptionAsync(lecture, fileUrl);
+            }
+
             var course = lecture.CourseSection?.Course;
             if (course != null && course.Status == CourseStatus.Published)
             {
@@ -213,6 +227,50 @@ namespace LMS.BLL.Services
             }
 
             return true;
+        }
+
+        private async Task ProcessPdfTranscriptionAsync(Lecture lecture, string fileUrl)
+        {
+            try
+            {
+                // Clear any existing transcripts for this lecture (scenarios of re-upload)
+                var existing = _context.LectureTranscripts.Where(t => t.LectureId == lecture.Id);
+                _context.LectureTranscripts.RemoveRange(existing);
+                await _context.SaveChangesAsync();
+
+                // Get local filesystem path
+                var webRoot = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot");
+                var fullPath = Path.Combine(webRoot, fileUrl.TrimStart('/'));
+
+                if (File.Exists(fullPath))
+                {
+                    // Call PDF extraction service
+                    var pages = await _aiServiceClient.ExtractPdfTextAsync(fullPath);
+
+                    if (pages != null && pages.Any())
+                    {
+                        foreach (var page in pages)
+                        {
+                            if (!string.IsNullOrWhiteSpace(page.Text))
+                            {
+                                _context.LectureTranscripts.Add(new LectureTranscript
+                                {
+                                    LectureId = lecture.Id,
+                                    Text = $"[Page {page.PageNumber}] {page.Text}",
+                                    StartTime = page.PageNumber, // Page number is saved as StartTime
+                                    EndTime = page.PageNumber
+                                });
+                            }
+                        }
+                        await _context.SaveChangesAsync();
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                // absorb error so main flow does not break if AI service is temporarily down
+                System.Diagnostics.Debug.WriteLine($"Error processing PDF extraction: {ex.Message}");
+            }
         }
     }
 }
