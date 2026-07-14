@@ -5,6 +5,11 @@ using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Collections.Generic;
+using Microsoft.Extensions.DependencyInjection;
+using LMS.BLL.Interfaces;
+using LMS.DAL.Data;
+using LMS.Core.Models;
+using System.Linq;
 
 namespace LMS.BLL.Services
 {
@@ -12,11 +17,13 @@ namespace LMS.BLL.Services
     {
         private readonly VideoProcessingChannel _channel;
         private readonly ILogger<VideoEncoderBackgroundService> _logger;
+        private readonly IServiceProvider _serviceProvider;
 
-        public VideoEncoderBackgroundService(VideoProcessingChannel channel, ILogger<VideoEncoderBackgroundService> logger)
+        public VideoEncoderBackgroundService(VideoProcessingChannel channel, ILogger<VideoEncoderBackgroundService> logger, IServiceProvider serviceProvider)
         {
             _channel = channel;
             _logger = logger;
+            _serviceProvider = serviceProvider;
         }
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -80,6 +87,10 @@ namespace LMS.BLL.Services
                 if (process.ExitCode == 0)
                 {
                     _logger.LogInformation("Successfully encoded video to HLS: {PlaylistPath}", playlistPath);
+                    
+                    // Call audio extraction and transcription pipeline
+                    await ExtractAudioAndTranscribeAsync(absolutePath, hlsDirectory, relativeFilePath, cancellationToken);
+
                     // Automatically delete the original .mp4 file to save space
                     try
                     {
@@ -100,6 +111,100 @@ namespace LMS.BLL.Services
             else
             {
                 _logger.LogError("Failed to start FFmpeg process.");
+            }
+        }
+
+        private async Task ExtractAudioAndTranscribeAsync(string absoluteVideoPath, string hlsDirectory, string relativeFilePath, CancellationToken cancellationToken)
+        {
+            var audioPath = Path.Combine(hlsDirectory, "audio.mp3");
+            var audioArguments = $"-y -i \"{absoluteVideoPath}\" -q:a 0 -map a \"{audioPath}\"";
+
+            _logger.LogInformation("Extracting audio from video: {AudioPath}", audioPath);
+
+            var startInfo = new ProcessStartInfo
+            {
+                FileName = "ffmpeg",
+                Arguments = audioArguments,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                CreateNoWindow = true
+            };
+
+            using var audioProcess = Process.Start(startInfo);
+            if (audioProcess != null)
+            {
+                await audioProcess.WaitForExitAsync(cancellationToken);
+                if (audioProcess.ExitCode == 0)
+                {
+                    _logger.LogInformation("Successfully extracted audio for transcription.");
+                    try
+                    {
+                        var predictedUrl = relativeFilePath.Replace(".mp4", "/playlist.m3u8")
+                                                           .Replace(".mov", "/playlist.m3u8")
+                                                           .Replace(".avi", "/playlist.m3u8")
+                                                           .Replace(".mkv", "/playlist.m3u8")
+                                                           .Replace(".webm", "/playlist.m3u8");
+
+                        using var scope = _serviceProvider.CreateScope();
+                        var dbContext = scope.ServiceProvider.GetRequiredService<LMSDBContext>();
+                        var aiClient = scope.ServiceProvider.GetRequiredService<IAiServiceClient>();
+
+                        var lecture = dbContext.Lectures.FirstOrDefault(l => l.ContentUrl == predictedUrl);
+                        if (lecture != null)
+                        {
+                            _logger.LogInformation("Found matching lecture {LectureId} for transcription.", lecture.Id);
+                            var segments = await aiClient.TranscribeAudioAsync(audioPath);
+                            
+                            if (segments != null && segments.Count > 0)
+                            {
+                                var existing = dbContext.LectureTranscripts.Where(t => t.LectureId == lecture.Id);
+                                dbContext.LectureTranscripts.RemoveRange(existing);
+
+                                foreach (var seg in segments)
+                                {
+                                    dbContext.LectureTranscripts.Add(new LectureTranscript
+                                    {
+                                        LectureId = lecture.Id,
+                                        StartTime = seg.StartTime,
+                                        EndTime = seg.EndTime,
+                                        Text = seg.Text
+                                    });
+                                }
+                                await dbContext.SaveChangesAsync(cancellationToken);
+                                _logger.LogInformation("Saved {Count} transcript segments for Lecture {LectureId}.", segments.Count, lecture.Id);
+                            }
+                        }
+                        else
+                        {
+                            _logger.LogWarning("No matching Lecture found in DB with ContentUrl: {Url}", predictedUrl);
+                        }
+                    }
+                    catch (System.Exception ex)
+                    {
+                        _logger.LogError(ex, "Failed during transcription call or database save.");
+                    }
+                    finally
+                    {
+                        try
+                        {
+                            if (File.Exists(audioPath))
+                            {
+                                File.Delete(audioPath);
+                                _logger.LogInformation("Cleaned up temporary audio file: {AudioPath}", audioPath);
+                            }
+                        }
+                        catch (System.Exception ex)
+                        {
+                            _logger.LogError(ex, "Failed to delete temporary audio file: {AudioPath}", audioPath);
+                        }
+                    }
+                }
+                else
+                {
+                    var error = await audioProcess.StandardError.ReadToEndAsync(cancellationToken);
+                    _logger.LogError("Audio extraction failed with exit code {ExitCode}. Error: {Error}", audioProcess.ExitCode, error);
+                }
             }
         }
     }

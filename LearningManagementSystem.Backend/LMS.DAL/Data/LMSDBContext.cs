@@ -16,6 +16,7 @@ namespace LMS.DAL.Data
         public DbSet<CourseSection> CourseSections { get; set; }
         public DbSet<Lecture> Lectures { get; set; }
         public DbSet<LectureProgress> LectureProgresses { get; set; }
+        public DbSet<LectureTranscript> LectureTranscripts { get; set; }
         public DbSet<Quiz> Quizzes { get; set; }
         public DbSet<QuizQuestion> QuizQuestions { get; set; }
         public DbSet<QuizOption> QuizOptions { get; set; }

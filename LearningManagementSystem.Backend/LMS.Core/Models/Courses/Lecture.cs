@@ -15,5 +15,6 @@ namespace LMS.Core.Models
         public CourseSection CourseSection { get; set; } = null!;
         public IEnumerable<Quiz> Quizzes { get; set; } = new List<Quiz>();
         public IEnumerable<LectureProgress> LectureProgresses { get; set; } = new List<LectureProgress>();
+        public IEnumerable<LectureTranscript> Transcripts { get; set; } = new List<LectureTranscript>();
     }
 }

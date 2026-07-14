@@ -168,6 +168,7 @@ builder.Services.AddScoped<IDiscussionService, DiscussionService>();
 builder.Services.AddScoped<ICertificatePdfGenerator, CertificatePdfGenerator>();
 builder.Services.AddScoped<IPublicService, PublicService>();
 builder.Services.AddScoped<IMediaTokenService, MediaTokenService>();
+builder.Services.AddHttpClient<IAiServiceClient, AiServiceClient>();
 builder.Services.AddTransient<LMS.BLL.Mappers.LectureResponseSecureMediaMappingAction>();
 builder.Services.AddDataProtection();
 builder.Services.AddSingleton<VideoProcessingChannel>();
