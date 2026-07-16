@@ -12,11 +12,20 @@ using LMS.BLL.Services;
 using Microsoft.AspNetCore.RateLimiting;
 using LMS.PL.Middleware;
 using Microsoft.Extensions.FileProviders;
+using Serilog;
 
 
 AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Configure Serilog from configuration (appsettings.json)
+Log.Logger = new LoggerConfiguration()
+    .ReadFrom.Configuration(builder.Configuration)
+    .Enrich.FromLogContext()
+    .CreateLogger();
+
+builder.Host.UseSerilog();
 
 
 var MyAllowSpecificOrigins = "_myAllowSpecificOrigins";
@@ -258,5 +267,32 @@ app.UseStaticFiles();
 
 app.MapControllers();
 app.MapHub<LMS.PL.Hubs.NotificationHub>("/notificationHub");
+
+// Auto-migrate and seed database on container startup if configured
+if (app.Configuration["AUTO_MIGRATE"] == "true")
+{
+    using (var scope = app.Services.CreateScope())
+    {
+        var services = scope.ServiceProvider;
+        try
+        {
+            var context = services.GetRequiredService<LMSDBContext>();
+            Console.WriteLine("Applying pending database migrations...");
+            await context.Database.MigrateAsync();
+            Console.WriteLine("Database auto-migration completed successfully.");
+
+            if (app.Configuration["AUTO_SEED"] == "true")
+            {
+                Console.WriteLine("AUTO_SEED flag detected. Seeding database context with default mock data...");
+                await DbSeeder.SeedDatabaseAsync(context);
+                Console.WriteLine("Database seeding completed successfully.");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[CRITICAL] Error during database startup initialization: {ex.Message}");
+        }
+    }
+}
 
 app.Run();

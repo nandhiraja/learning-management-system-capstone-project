@@ -150,10 +150,23 @@ namespace LMS.BLL.Services
                         var dbContext = scope.ServiceProvider.GetRequiredService<LMSDBContext>();
                         var aiClient = scope.ServiceProvider.GetRequiredService<IAiServiceClient>();
 
-                        var lecture = dbContext.Lectures.FirstOrDefault(l => l.ContentUrl == predictedUrl);
+                        Lecture? lecture = null;
+                        int retryCount = 0;
+                        while (lecture == null && retryCount < 6)
+                        {
+                            lecture = dbContext.Lectures.FirstOrDefault(l => l.ContentUrl == predictedUrl);
+                            if (lecture == null)
+                            {
+                                retryCount++;
+                                _logger.LogInformation("Lecture with ContentUrl {Url} not found in DB yet. Retry {RetryCount}/6 in 5s...", predictedUrl, retryCount);
+                                await Task.Delay(5000, cancellationToken);
+                                dbContext.ChangeTracker.Clear(); // Clear tracking to fetch fresh data from database
+                            }
+                        }
+
                         if (lecture != null)
                         {
-                            _logger.LogInformation("Found matching lecture {LectureId} for transcription.", lecture.Id);
+                            _logger.LogInformation("Found matching lecture {LectureId} for transcription after {RetryCount} retries.", lecture.Id, retryCount);
                             var segments = await aiClient.TranscribeAudioAsync(audioPath);
                             
                             if (segments != null && segments.Count > 0)
@@ -173,6 +186,10 @@ namespace LMS.BLL.Services
                                 }
                                 await dbContext.SaveChangesAsync(cancellationToken);
                                 _logger.LogInformation("Saved {Count} transcript segments for Lecture {LectureId}.", segments.Count, lecture.Id);
+                            }
+                            else
+                            {
+                                _logger.LogWarning("AI Service returned no transcript segments for video Lecture {LectureId}.", lecture.Id);
                             }
                         }
                         else

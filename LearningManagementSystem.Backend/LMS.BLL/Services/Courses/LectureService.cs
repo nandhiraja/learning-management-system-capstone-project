@@ -11,6 +11,8 @@ using LMS.Core.Exception;
 using LMS.DAL.Data;
 using LMS.DAL.Interfaces;
 
+using Microsoft.Extensions.Logging;
+
 namespace LMS.BLL.Services
 {
     public class LectureService : ILectureService
@@ -22,6 +24,7 @@ namespace LMS.BLL.Services
         private readonly IMapper _mapper;
         private readonly IAiServiceClient _aiServiceClient;
         private readonly LMSDBContext _context;
+        private readonly ILogger<LectureService> _logger;
 
         public LectureService(
             ILectureRepository lectureRepository,
@@ -30,7 +33,8 @@ namespace LMS.BLL.Services
             IUserRepository userRepository,
             IMapper mapper,
             IAiServiceClient aiServiceClient,
-            LMSDBContext context)
+            LMSDBContext context,
+            ILogger<LectureService> logger)
         {
             _lectureRepository = lectureRepository;
             _sectionRepository = sectionRepository;
@@ -39,6 +43,7 @@ namespace LMS.BLL.Services
             _mapper = mapper;
             _aiServiceClient = aiServiceClient;
             _context = context;
+            _logger = logger;
         }
 
         public async Task<LectureResponse> CreateLectureAsync(int sectionId, LectureRequest request, Guid userGuid)
@@ -81,6 +86,12 @@ namespace LMS.BLL.Services
             };
 
             var createdLecture = await _lectureRepository.Create(lecture);
+
+            // PDF Text Extraction Integration on Creation
+            if (contentType == ContentType.pdf && !string.IsNullOrEmpty(request.ContentUrl))
+            {
+                await ProcessPdfTranscriptionAsync(createdLecture, request.ContentUrl);
+            }
 
             if (course.Status == CourseStatus.Published)
             {
@@ -142,12 +153,22 @@ namespace LMS.BLL.Services
                 throw new ArgumentException($"Invalid ContentType: {request.ContentType}");
             }
 
+            var oldUrl = lecture.ContentUrl;
+            var oldType = lecture.ContentType;
+
             lecture.Title = request.Title;
             lecture.ContentUrl = request.ContentUrl;
             lecture.DurationInMinutes = request.DurationInMinutes;
             lecture.ContentType = contentType;
 
             await _lectureRepository.Update(lecture);
+
+            // PDF Text Extraction Integration on Update
+            if (contentType == ContentType.pdf && !string.IsNullOrEmpty(request.ContentUrl) && 
+                (oldUrl != request.ContentUrl || oldType != ContentType.pdf))
+            {
+                await ProcessPdfTranscriptionAsync(lecture, request.ContentUrl);
+            }
 
             var course = lecture.CourseSection?.Course;
             if (course != null && course.Status == CourseStatus.Published)
@@ -231,6 +252,7 @@ namespace LMS.BLL.Services
 
         private async Task ProcessPdfTranscriptionAsync(Lecture lecture, string fileUrl)
         {
+            _logger.LogInformation("Starting PDF text extraction for Lecture {LectureId} using file {FileUrl}.", lecture.Id, fileUrl);
             try
             {
                 // Clear any existing transcripts for this lecture (scenarios of re-upload)
@@ -239,8 +261,7 @@ namespace LMS.BLL.Services
                 await _context.SaveChangesAsync();
 
                 // Get local filesystem path
-                var webRoot = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot");
-                var fullPath = Path.Combine(webRoot, fileUrl.TrimStart('/'));
+                var fullPath = Path.Combine(Directory.GetCurrentDirectory(), fileUrl.TrimStart('/'));
 
                 if (File.Exists(fullPath))
                 {
@@ -249,6 +270,7 @@ namespace LMS.BLL.Services
 
                     if (pages != null && pages.Any())
                     {
+                        int addedCount = 0;
                         foreach (var page in pages)
                         {
                             if (!string.IsNullOrWhiteSpace(page.Text))
@@ -260,16 +282,25 @@ namespace LMS.BLL.Services
                                     StartTime = page.PageNumber, // Page number is saved as StartTime
                                     EndTime = page.PageNumber
                                 });
+                                addedCount++;
                             }
                         }
                         await _context.SaveChangesAsync();
+                        _logger.LogInformation("Successfully saved {Count} PDF page transcripts to database for Lecture {LectureId}.", addedCount, lecture.Id);
                     }
+                    else
+                    {
+                        _logger.LogWarning("AI Service returned empty pages or failed to extract text from PDF for Lecture {LectureId}.", lecture.Id);
+                    }
+                }
+                else
+                {
+                    _logger.LogError("PDF file was not found on disk at {Path} for Lecture {LectureId}.", fullPath, lecture.Id);
                 }
             }
             catch (Exception ex)
             {
-                // absorb error so main flow does not break if AI service is temporarily down
-                System.Diagnostics.Debug.WriteLine($"Error processing PDF extraction: {ex.Message}");
+                _logger.LogError(ex, "Failed to process PDF transcription/extraction for Lecture {LectureId}.", lecture.Id);
             }
         }
     }

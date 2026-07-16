@@ -48,12 +48,12 @@ namespace LMS.PL.Controllers
                 return Unauthorized("Invalid or expired media token.");
             }
 
-            // Set an HTTP-Only cookie that lasts for 30 minutes
+            var isHttps = Request.IsHttps;
             var cookieOptions = new CookieOptions
             {
                 HttpOnly = true,
-                Secure = true,
-                SameSite = SameSiteMode.None,
+                Secure = isHttps,
+                SameSite = isHttps ? SameSiteMode.None : SameSiteMode.Lax,
                 Expires = DateTimeOffset.UtcNow.AddMinutes(30)
             };
 
@@ -64,6 +64,8 @@ namespace LMS.PL.Controllers
         [HttpGet("stream/{*filePath}")]
         public async Task<IActionResult> StreamMedia(string filePath)
         {
+            filePath = System.Uri.UnescapeDataString(filePath);
+
             if (!Request.Cookies.TryGetValue("LMS_MediaAuth", out var token) || string.IsNullOrEmpty(token))
             {
                 return Unauthorized("Authentication cookie is missing.");
@@ -81,9 +83,9 @@ namespace LMS.PL.Controllers
             var authorizedDir = Path.GetDirectoryName(authorizedPath)?.Replace("\\", "/");
             var requestedDir = Path.GetDirectoryName(filePath)?.Replace("\\", "/");
 
-            if (string.IsNullOrEmpty(authorizedDir) || string.IsNullOrEmpty(requestedDir) || !requestedDir.StartsWith(authorizedDir))
+            if (string.IsNullOrEmpty(authorizedDir) || string.IsNullOrEmpty(requestedDir) || !requestedDir.StartsWith(authorizedDir, StringComparison.OrdinalIgnoreCase))
             {
-                return Forbid("You are not authorized to access this file.");
+                return StatusCode(StatusCodes.Status403Forbidden, "You are not authorized to access this file.");
             }
 
             var (stream, contentType) = await _fileStorageService.GetFileStreamAsync(filePath);

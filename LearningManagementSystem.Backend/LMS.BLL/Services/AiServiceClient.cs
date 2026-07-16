@@ -56,9 +56,9 @@ namespace LMS.BLL.Services
                 var responseBody = await response.Content.ReadAsStringAsync();
                 
                 var options = new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
-                var result = JsonSerializer.Deserialize<TranscriptResponse>(responseBody, options);
+                var result = JsonSerializer.Deserialize<AiServiceEnvelope<TranscriptResponse>>(responseBody, options);
 
-                return result?.Segments ?? new List<TranscriptSegmentDto>();
+                return result?.Data?.Segments ?? new List<TranscriptSegmentDto>();
             }
             catch (Exception ex)
             {
