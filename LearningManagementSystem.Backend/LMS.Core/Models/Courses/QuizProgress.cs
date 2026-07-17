@@ -11,6 +11,7 @@ namespace LMS.Core.Models
         public int HighestScore { get; set; }
         public bool IsPassed { get; set; }
         public DateTime LastAttemptDate { get; set; }
+        public string? LastStudyPlan { get; set; }
 
         // Navigation properties
         public User User { get; set; } = null!;

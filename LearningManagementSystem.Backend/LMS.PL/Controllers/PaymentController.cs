@@ -50,7 +50,7 @@ namespace LMS.PL.Controllers
 
         [AllowAnonymous]
         [HttpGet("paypal-callback")]
-        public async Task<IActionResult> PayPalCallback([FromQuery] string paymentId, [FromQuery] string token, [FromQuery] string PayerID)
+        public async Task<IActionResult> PayPalCallback([FromQuery] string? paymentId, [FromQuery] string token, [FromQuery] string PayerID)
         {
             var frontendUrl = _configuration["FrontendBaseUrl"] ?? "http://localhost:4200";
             

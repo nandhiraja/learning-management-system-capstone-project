@@ -63,6 +63,38 @@ namespace LMS.BLL.Services
                 Directory.CreateDirectory(hlsDirectory);
             }
 
+            // Run HLS encoding and audio transcription in PARALLEL.
+            // Both read from the same original video file simultaneously.
+            // Transcript becomes available in ~13s while HLS encoding continues for 4+ min.
+            _logger.LogInformation("Starting HLS encoding and audio transcription in parallel for: {FilePath}", relativeFilePath);
+
+            var hlsTask = EncodeToHlsAsync(absolutePath, hlsDirectory, cancellationToken);
+            var transcribeTask = ExtractAudioAndTranscribeAsync(absolutePath, hlsDirectory, relativeFilePath, cancellationToken);
+
+            // Wait for both to complete before deleting the original video
+            await Task.WhenAll(hlsTask, transcribeTask);
+
+            // Delete the original video only after both tasks are done
+            try
+            {
+                if (File.Exists(absolutePath))
+                {
+                    File.Delete(absolutePath);
+                    _logger.LogInformation("Deleted original video file: {AbsolutePath}", absolutePath);
+                }
+            }
+            catch (System.Exception ex)
+            {
+                _logger.LogError(ex, "Failed to delete original video file: {AbsolutePath}", absolutePath);
+            }
+        }
+
+        /// <summary>
+        /// Encodes the uploaded video to HLS (.m3u8 + .ts segments) using FFmpeg.
+        /// Takes ~4 minutes for a 10-min 720p video on container CPU.
+        /// </summary>
+        private async Task EncodeToHlsAsync(string absolutePath, string hlsDirectory, CancellationToken cancellationToken)
+        {
             var playlistPath = Path.Combine(hlsDirectory, "playlist.m3u8");
             var segmentPattern = Path.Combine(hlsDirectory, "segment_%03d.ts");
 
@@ -81,39 +113,28 @@ namespace LMS.BLL.Services
             using var process = Process.Start(startInfo);
             if (process != null)
             {
-                // We could read output here, but for simplicity we'll just wait
                 await process.WaitForExitAsync(cancellationToken);
-                
+
                 if (process.ExitCode == 0)
                 {
                     _logger.LogInformation("Successfully encoded video to HLS: {PlaylistPath}", playlistPath);
-                    
-                    // Call audio extraction and transcription pipeline
-                    await ExtractAudioAndTranscribeAsync(absolutePath, hlsDirectory, relativeFilePath, cancellationToken);
-
-                    // Automatically delete the original .mp4 file to save space
-                    try
-                    {
-                        File.Delete(absolutePath);
-                        _logger.LogInformation("Deleted original video file: {AbsolutePath}", absolutePath);
-                    }
-                    catch (System.Exception ex)
-                    {
-                        _logger.LogError(ex, "Failed to delete original video file: {AbsolutePath}", absolutePath);
-                    }
                 }
                 else
                 {
                     var error = await process.StandardError.ReadToEndAsync(cancellationToken);
-                    _logger.LogError("FFmpeg failed with exit code {ExitCode}. Error: {Error}", process.ExitCode, error);
+                    _logger.LogError("FFmpeg HLS encoding failed with exit code {ExitCode}. Error: {Error}", process.ExitCode, error);
                 }
             }
             else
             {
-                _logger.LogError("Failed to start FFmpeg process.");
+                _logger.LogError("Failed to start FFmpeg HLS encoding process.");
             }
         }
 
+        /// <summary>
+        /// Extracts audio from the original video and sends it to the AI transcription service.
+        /// Runs in parallel with HLS encoding — transcript is ready in ~13 seconds.
+        /// </summary>
         private async Task ExtractAudioAndTranscribeAsync(string absoluteVideoPath, string hlsDirectory, string relativeFilePath, CancellationToken cancellationToken)
         {
             var audioPath = Path.Combine(hlsDirectory, "audio.mp3");
@@ -168,7 +189,7 @@ namespace LMS.BLL.Services
                         {
                             _logger.LogInformation("Found matching lecture {LectureId} for transcription after {RetryCount} retries.", lecture.Id, retryCount);
                             var segments = await aiClient.TranscribeAudioAsync(audioPath);
-                            
+
                             if (segments != null && segments.Count > 0)
                             {
                                 var existing = dbContext.LectureTranscripts.Where(t => t.LectureId == lecture.Id);

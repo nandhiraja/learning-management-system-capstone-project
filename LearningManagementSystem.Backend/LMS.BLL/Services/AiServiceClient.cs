@@ -160,9 +160,105 @@ namespace LMS.BLL.Services
             }
         }
 
+        public async Task<AiServiceEnvelope<StudyPlanResponseDto>> GenerateStudyPlanAsync(StudyPlanRequestDto request)
+        {
+            var baseUrl = _configuration["AiService:BaseUrl"] ?? "http://localhost:8000";
+            var url = $"{baseUrl.TrimEnd('/')}/api/ai/agent/remediate";
+
+            _logger.LogInformation("Sending study plan remediation request to Python service: {Url}", url);
+
+            var serializeOptions = new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
+            var jsonString = JsonSerializer.Serialize(request, serializeOptions);
+            using var requestContent = new StringContent(jsonString, System.Text.Encoding.UTF8, "application/json");
+
+            try
+            {
+                var response = await _httpClient.PostAsync(url, requestContent);
+                var responseBody = await response.Content.ReadAsStringAsync();
+
+                var options = new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
+                var result = JsonSerializer.Deserialize<AiServiceEnvelope<StudyPlanResponseDto>>(responseBody, options);
+
+                if (result != null)
+                {
+                    return result;
+                }
+
+                return new AiServiceEnvelope<StudyPlanResponseDto>
+                {
+                    Success = false,
+                    Error = new AiServiceError
+                    {
+                        Code = "INTERNAL_ERROR",
+                        Message = $"Failed to parse study plan response from AI service: {response.StatusCode} - {responseBody}"
+                    }
+                };
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to call Python study plan remediation service.");
+                return new AiServiceEnvelope<StudyPlanResponseDto>
+                {
+                    Success = false,
+                    Error = new AiServiceError
+                    {
+                        Code = "LLM_UNAVAILABLE",
+                        Message = "Could not reach the AI service: " + ex.Message
+                    }
+                };
+            }
+        }
+
         private class TranscriptResponse
         {
             public List<TranscriptSegmentDto> Segments { get; set; } = new List<TranscriptSegmentDto>();
+        }
+
+        public async Task<AiServiceEnvelope<List<GeneratedQuizQuestionDto>>> GenerateQuizAsync(string lectureTranscript, string lectureTitle, int numQuestions, List<string> existingQuestions)
+        {
+            var baseUrl = _configuration["AiService:BaseUrl"] ?? "http://localhost:8000";
+            var url = $"{baseUrl.TrimEnd('/')}/api/ai/quiz-generator/generate";
+
+            _logger.LogInformation("Sending quiz generation request to Python service: {Url}", url);
+
+            var payload = new { lectureTranscript, lectureTitle, numQuestions, existingQuestions };
+            var serializeOptions = new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
+            var jsonString = JsonSerializer.Serialize(payload, serializeOptions);
+            using var requestContent = new StringContent(jsonString, System.Text.Encoding.UTF8, "application/json");
+
+            try
+            {
+                var response = await _httpClient.PostAsync(url, requestContent);
+                var responseBody = await response.Content.ReadAsStringAsync();
+
+                var options = new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
+                var result = JsonSerializer.Deserialize<AiServiceEnvelope<List<GeneratedQuizQuestionDto>>>(responseBody, options);
+
+                if (result != null) return result;
+
+                return new AiServiceEnvelope<List<GeneratedQuizQuestionDto>>
+                {
+                    Success = false,
+                    Error = new AiServiceError
+                    {
+                        Code = "INTERNAL_ERROR",
+                        Message = $"Failed to parse quiz generator response: {response.StatusCode} - {responseBody}"
+                    }
+                };
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to call Python quiz generator service.");
+                return new AiServiceEnvelope<List<GeneratedQuizQuestionDto>>
+                {
+                    Success = false,
+                    Error = new AiServiceError
+                    {
+                        Code = "LLM_UNAVAILABLE",
+                        Message = "Could not reach the AI service: " + ex.Message
+                    }
+                };
+            }
         }
     }
 }

@@ -526,7 +526,8 @@ namespace LMS.BLL.Services
                 MaxAttempts = quiz.MaxAttempts,
                 HighestScore = quizProgress?.HighestScore ?? 0,
                 PassScore = quiz.PassScore,
-                IsPassed = quizProgress?.IsPassed ?? false
+                IsPassed = quizProgress?.IsPassed ?? false,
+                LastStudyPlan = quizProgress?.LastStudyPlan
             };
         }
 

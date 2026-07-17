@@ -8,5 +8,6 @@ namespace LMS.Core.DTOs
         public int HighestScore { get; set; }
         public int PassScore { get; set; }
         public bool IsPassed { get; set; }
+        public string? LastStudyPlan { get; set; }
     }
 }
